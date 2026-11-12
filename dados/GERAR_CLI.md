@@ -2,8 +2,10 @@
 
 ## 1. Abrir o projeto
 
+Substitui `/caminho/para/tinyLLM` pela pasta onde clonaste o repositório.
+
 ```bash
-cd ~/Documentos/Alunos/SmartLearning/tiny_v2/tinyLLM
+cd /caminho/para/tinyLLM
 source .venv/bin/activate
 python distill.py status
 ```
@@ -23,7 +25,7 @@ Executa até 10 pedidos pendentes, até 60 conversas. Cada resultado é guardado
 Noutro terminal:
 
 ```bash
-cd ~/Documentos/Alunos/SmartLearning/tiny_v2/tinyLLM
+cd /caminho/para/tinyLLM
 source .venv/bin/activate
 python distill.py status
 python monitor.py --port 8766
