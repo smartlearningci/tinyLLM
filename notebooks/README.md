@@ -14,5 +14,5 @@ O notebook inglês grava final_473M; a relação exata com a pasta posteriorment
 
 Segue [NOVO_TREINO.md](NOVO_TREINO.md). Não é necessário voltar a executar o treino inglês.
 
-Notebook histórico no Kaggle: https://www.kaggle.com/code/eduardocatarino/tinyslm-culinary-poc
-Dataset dos pesos: https://www.kaggle.com/datasets/eduardocatarino/tinyslm-chat-mvp-v01
+Notebook histórico no Kaggle: procura `tinyslm-culinary-poc` na secção Code da tua conta.
+Dataset dos pesos: procura `tinyslm-chat-mvp-v01` na secção Datasets da tua conta.
