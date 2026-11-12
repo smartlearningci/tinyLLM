@@ -1,0 +1,2 @@
+# Programa local: apenas biblioteca padrão Python 3.10+.
+# Dependências GPU são instaladas pelo notebook no Kaggle.

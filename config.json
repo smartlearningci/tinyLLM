@@ -1,0 +1,78 @@
+{
+  "version": "distill-en-0.1",
+  "language": "en",
+  "personas": [
+    {
+      "id": "P1",
+      "name": "beginner",
+      "description": "User who needs clear, simple explanations and help understanding instructions, concepts or steps."
+    },
+    {
+      "id": "P2",
+      "name": "practical",
+      "description": "User focused on accomplishing a concrete task with the information and resources available."
+    },
+    {
+      "id": "P3",
+      "name": "restrictions",
+      "description": "User whose request includes constraints, exclusions, preferences or requirements that must be respected."
+    },
+    {
+      "id": "P4",
+      "name": "adaptation",
+      "description": "User who needs existing information adapted, scaled, calculated or modified for a new situation."
+    },
+    {
+      "id": "P5",
+      "name": "exploratory",
+      "description": "User who explores information through follow-up questions and expects conversational continuity."
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "C1",
+      "name": "extract",
+      "description": "Locate and return information explicitly supported by the supplied context."
+    },
+    {
+      "id": "C2",
+      "name": "select",
+      "description": "Identify which information in the context is relevant to the user request and ignore irrelevant information."
+    },
+    {
+      "id": "C3",
+      "name": "reason",
+      "description": "Combine or relate multiple pieces of contextual information to derive a supported answer."
+    },
+    {
+      "id": "C4",
+      "name": "constraints",
+      "description": "Apply user-specified rules, preferences, exclusions or constraints to contextual information."
+    },
+    {
+      "id": "C5",
+      "name": "transform",
+      "description": "Summarize, simplify, reorganize or rewrite supplied information without changing its supported meaning."
+    },
+    {
+      "id": "C6",
+      "name": "multiturn",
+      "description": "Maintain relevant context, references and state across multiple conversational turns."
+    },
+    {
+      "id": "C7",
+      "name": "grounding",
+      "description": "Recognize when available context is insufficient, conflicting or does not support a requested conclusion, and avoid inventing unsupported information."
+    },
+    {
+      "id": "C8",
+      "name": "tools",
+      "description": "Recognize when an external tool is needed, provide appropriate tool inputs, interpret its result and avoid unnecessary tool use."
+    }
+  ],
+  "max_recipe_chars": 14000,
+  "max_knowledge_chars": 2400,
+  "max_attempts": 3,
+  "timeout_seconds": 600,
+  "codex_model": "gpt-6.1-sol"
+}

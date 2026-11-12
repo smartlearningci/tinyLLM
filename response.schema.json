@@ -1,0 +1,112 @@
+{
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "type": "string"
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "type": "integer"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "C1",
+              "C2",
+              "C3",
+              "C4",
+              "C5",
+              "C6",
+              "C7"
+            ]
+          },
+          "supported": {
+            "type": "boolean"
+          },
+          "evidence_type": {
+            "type": "string",
+            "enum": [
+              "E0",
+              "E1",
+              "E2",
+              "E4"
+            ]
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ]
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant"
+                  ]
+                },
+                "content": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "role",
+                "content"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "string"
+                },
+                "quote": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source_id",
+                "quote"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "evidence_note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot",
+          "capability",
+          "supported",
+          "evidence_type",
+          "difficulty",
+          "messages",
+          "evidence",
+          "evidence_note"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "job_id",
+    "examples"
+  ],
+  "additionalProperties": false
+}
