@@ -2,17 +2,17 @@
 
 ## Base inglesa
 
-Copia a pasta completa 473_B1 mostrada no gestor de ficheiros para modelos/base_473M/. Se a origem for exatamente esta:
+Copia a pasta completa `473_B1` para `modelos/base_473M/`. A partir da raiz do repositório, usa a localização real da pasta de origem:
 
 ```bash
-cp -a ../TinySLM/04_models/baseline/473_B1 modelos/base_473M
+cp -a "/caminho/para/473_B1" modelos/base_473M
 ```
 
-Executa apenas uma vez e confirma que modelos/base_473M ainda não existe, para não criar uma pasta aninhada. Origem conhecida pela imagem: tiny_v2/TinySLM/04_models/baseline/473_B1/.
+Substitui `/caminho/para/473_B1` pelo caminho indicado no teu gestor de ficheiros. Executa apenas uma vez e confirma que `modelos/base_473M` ainda não existe, para não criar uma pasta aninhada.
 
 Conteúdo esperado: model.safetensors, config.json, generation_config.json, tokenizer.json, tokenizer_config.json, metrics.json, training_state.pt. O conteúdo do estado de treino não foi inspecionado; não assumimos retoma exata só pela sua presença.
 
-Cópia Kaggle: https://www.kaggle.com/datasets/eduardocatarino/tinyslm-chat-mvp-v01
+Cópia Kaggle: consulta o dataset `tinyslm-chat-mvp-v01` na tua conta Kaggle (secção Datasets).
 O tokenizer base desta pasta não deve ser confundido com o tokenizer de chat usado no SFT.
 
 ## Cada treino culinário
