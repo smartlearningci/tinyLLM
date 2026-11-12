@@ -5,7 +5,7 @@ Modelo pequeno de língua inglesa, adaptado a receitas. Geração de conversas p
 ## Instalar no PC (Linux)
 
 ```bash
-cd ~/Documentos/Alunos/SmartLearning/tiny_v2
+cd ~
 git clone https://github.com/smartlearningci/tinyLLM.git
 cd tinyLLM
 python3 -m venv .venv
