@@ -40,3 +40,16 @@ Estes mesmos guias aparecem no painel em Instruções. Os ficheiros Markdown sã
 Para atualizar o código: `git pull --ff-only`. Dados e modelos estão excluídos do Git. Faz cópias de segurança locais separadas.
 
 Testes: `python -m unittest -v`. Não consomem quota nem treinam modelos.
+
+## Geração económica via Codex CLI
+
+Para reduzir instruções repetidas, há um comando independente que gera em lotes,
+mede tokens quando o Codex os reporta e não repete automaticamente falhas:
+
+```bash
+python economico.py --limit 4 --batch-size 4 --model gpt-6-luna
+```
+
+Depois do primeiro ensaio, `python economico.py` limita a 20 pedidos, em lotes
+de 4, usando `gpt-6-luna`. Consulta [o guia de geração económica](docs/GERACAO_ECONOMICA.md)
+antes de usar. Este modo não modifica a geração via chat.
