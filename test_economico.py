@@ -35,8 +35,8 @@ class EconomicTests(unittest.TestCase):
     def test_recovery_does_not_retry(self):
         with tempfile.TemporaryDirectory() as d, sqlite3.connect(":memory:") as db:
             db.row_factory=sqlite3.Row
-            db.execute("CREATE TABLE jobs(id TEXT,status TEXT,attempts INTEGER,error TEXT,updated TEXT)")
-            db.execute("INSERT INTO jobs VALUES('a','running',1,NULL,NULL)")
+            db.execute("CREATE TABLE jobs(id TEXT,status TEXT,attempts INTEGER,error TEXT,updated TEXT,created TEXT)")
+            db.execute("INSERT INTO jobs VALUES('a','running',1,NULL,NULL,'today')")
             economico.recover(db,Path(d))
             self.assertEqual(db.execute("SELECT status FROM jobs").fetchone()[0],"error")
 
