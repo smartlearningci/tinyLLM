@@ -32,7 +32,7 @@ def batch_prompt(jobs):
     return (
         templates[0]
         + "\nBATCH OVERRIDE: Return exactly one response object per requested job_id, "
-        including every task slot. Do not merge jobs, omit jobs "
+        "including every task slot. Do not merge jobs, omit jobs "
         "or change identifiers. Keep citations verbatim and evidence source_ids exact."
         "\nReturn an object with exactly one key: responses (an array of the individual response objects).\nREQUESTS\n" + distill.dumps(requests) + "\n"
     )
