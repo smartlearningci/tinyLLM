@@ -32,9 +32,9 @@ def batch_prompt(jobs):
     return (
         templates[0]
         + "\nBATCH OVERRIDE: Return ONLY a JSON array, exactly one independent response "
-        "for every job_id, including every task slot. Do not merge jobs, omit jobs "
+        for every job_id, including every task slot. Do not merge jobs, omit jobs "
         "or change identifiers. Keep citations verbatim and evidence source_ids exact."
-        "\nREQUESTS\n" + distill.dumps(requests) + "\n"
+        "\nReturn an object with exactly one key: responses (an array of the individual response objects).\nREQUESTS\n" + distill.dumps(requests) + "\n"
     )
 
 
@@ -110,15 +110,16 @@ def recover(db, raw_dir):
         try:
             meta = json.loads(manifest.read_text(encoding="utf-8"))
             ids = meta["job_ids"]
+            expected_attempts = meta["attempts"]
         except (ValueError, KeyError, TypeError):
             continue
-        matched = [pending[jid] for jid in ids if jid in pending]
+        matched = [pending[jid] for jid in ids if jid in pending and pending[jid]["attempts"] == expected_attempts[jid]]
         if not matched:
             continue
         response = raw_dir / (manifest.name.replace(".manifest.json", ".response.json"))
         if response.is_file():
             try:
-                items = distill.parse_response(response.read_text(encoding="utf-8"))
+                items = distill.parse_response(response.read_text(encoding="utf-8"))["responses"]
                 mapped = validate_batch(items, [db.execute(
                     "SELECT * FROM jobs WHERE id=?", (jid,)).fetchone()
                     for jid in ids])
@@ -180,10 +181,10 @@ def run(args, config, db, work):
             break
         prompt = batch_prompt(group)
         ids = [j["id"] for j in group]
-        stem = "eco-" + hashlib.sha256(distill.dumps(ids).encode()).hexdigest()[:20]
+        stem = "eco-" + hashlib.sha256((distill.dumps(ids) + str(time.time_ns())).encode()).hexdigest()[:20]
         prefix = raw_dir / stem
         # Manifesto antes de cobrar qualquer chamada: permite recuperacao apos crash.
-        manifest = {"job_ids": ids, "model": args.model,
+        manifest = {"job_ids": ids, "attempts": {j["id"]: j["attempts"] + 1 for j in group}, "model": args.model,
                     "created": distill.now()}
         distill.write_json(str(prefix) + ".manifest.json", manifest)
         with db:
@@ -219,7 +220,7 @@ def run(args, config, db, work):
                 # Guardar ANTES de validar ou atualizar a fila.
                 text = output.read_text(encoding="utf-8")
                 Path(str(prefix) + ".response.json").write_text(text, encoding="utf-8")
-            items = distill.parse_response(text)
+            items = distill.parse_response(text)["responses"]
             metrics = usage_from_events(Path(str(prefix) + ".events.jsonl"))
             elapsed = time.monotonic() - started
             counts = save_batch(db, group, items, args.model, metrics, elapsed)
