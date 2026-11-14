@@ -51,5 +51,5 @@ python economico.py --limit 4 --batch-size 4 --model gpt-6-luna
 ```
 
 Depois do primeiro ensaio, `python economico.py` limita a 20 pedidos, em lotes
-de 4, usando `gpt-6-luna`. Consulta [o guia de geração económica](docs/GERACAO_ECONOMICA.md)
+de 4, usando `gpt-6-luna` com raciocínio `low`. Consulta [o guia de geração económica](docs/GERACAO_ECONOMICA.md)
 antes de usar. Este modo não modifica a geração via chat.
