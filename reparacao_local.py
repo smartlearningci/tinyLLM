@@ -9,7 +9,7 @@ import distill
 
 def tokens(text):
     """Sequencia de palavras com pontuacao ignorada, preservando acentos."""
-    return re.findall(r"[^\\W_]+", unicodedata.normalize("NFKC", text).casefold(), re.UNICODE)
+    return re.findall(r"[^\W_]+", unicodedata.normalize("NFKC", text).casefold(), re.UNICODE)
 
 
 def repair_quote(quote, source):
@@ -21,7 +21,7 @@ def repair_quote(quote, source):
     if len(words) < 3 or len(quote.strip()) < 12:
         return None
     # Percorre palavras da fonte guardando limites; mantem pontuacao real da fonte.
-    matches = list(re.finditer(r"[^\\W_]+", source, re.UNICODE))
+    matches = list(re.finditer(r"[^\W_]+", source, re.UNICODE))
     folded = [unicodedata.normalize("NFKC", m.group()).casefold() for m in matches]
     hits = []
     n = len(words)
