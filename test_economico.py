@@ -102,7 +102,7 @@ class EconomicTests(unittest.TestCase):
                     db.execute(
                         "INSERT INTO jobs(id,recipe_id,prompt,request,status,attempts,created) "
                         "VALUES(?,?,?,?,?,0,?)",
-                        (jid, "r", "Instruction\\nREQUEST\\n" + json.dumps(req),
+                        (jid, "r", "Instruction\nREQUEST\n" + json.dumps(req),
                          json.dumps(req), "pending", jid),
                     )
                 db.commit()
@@ -114,13 +114,13 @@ class EconomicTests(unittest.TestCase):
                     if cmd[1:3] == ["exec", "--help"]:
                         return argparse.Namespace(returncode=0, stdout="--output-schema --ephemeral", stderr="")
                     calls.append(len(calls) + 1)
-                    requests = json.loads(kwargs["input"].split("\\nREQUESTS\\n")[-1])
+                    requests = json.loads(kwargs["input"].split("\nREQUESTS\n")[-1])
                     items = ([{"job_id": req["job_id"]} for req in requests]
                              if len(calls) == 2 else [])
                     Path(cmd[cmd.index("-o") + 1]).write_text(
                         json.dumps({"responses": items}), encoding="utf-8")
                     kwargs["stdout"].write(
-                        '{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":50}}\\n')
+                        '{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":50}}\n')
                     return argparse.Namespace(returncode=0)
 
                 def fake_store(database, job, item, provider, model, usage=None):
