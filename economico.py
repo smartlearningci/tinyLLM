@@ -33,7 +33,9 @@ def batch_prompt(jobs):
         templates[0]
         + "\nBATCH OVERRIDE: Return exactly one response object per requested job_id, "
         "including every task slot. Do not merge jobs, omit jobs "
-        "or change identifiers. Keep citations verbatim and evidence source_ids exact."
+        "or change identifiers. All supported messages must alternate user, assistant, "
+        "starting with user and ending with assistant; C6 requires 2 to 4 such exchanges. "
+        "Keep citations verbatim and evidence source_ids exact."
         "\nReturn an object with exactly one key: responses (an array of the individual response objects).\nREQUESTS\n" + distill.dumps(requests) + "\n"
     )
 
@@ -53,8 +55,8 @@ def usage_from_events(path):
     return usage
 
 
-def validate_batch(items, jobs):
-    """Valida TODOS os itens antes de gravar qualquer conversa."""
+def index_batch(items, jobs):
+    """Confere IDs do lote sem descartar respostas validas por erro de outro pedido."""
     if not isinstance(items, list) or len(items) != len(jobs):
         raise ValueError("O numero de respostas nao coincide com o numero de pedidos.")
     expected = {j["id"]: j for j in jobs}
@@ -66,8 +68,15 @@ def validate_batch(items, jobs):
         if jid in seen:
             raise ValueError("job_id repetido no lote.")
         seen.add(jid)
-        distill.validate_response(item, json.loads(expected[jid]["request"]))
     return {item["job_id"]: item for item in items}
+
+
+def validate_batch(items, jobs):
+    """Valida todos os pedidos; usado na verificacao estrita."""
+    mapped = index_batch(items, jobs)
+    for job in jobs:
+        distill.validate_response(mapped[job["id"]], json.loads(job["request"]))
+    return mapped
 
 
 def mark_failed(db, jobs, message):
@@ -82,17 +91,28 @@ def mark_failed(db, jobs, message):
 
 
 def save_batch(db, jobs, items, model, usage, seconds):
-    """Respostas verificadas sao guardadas individualmente; sem regeneracao."""
-    mapped = validate_batch(items, jobs)
-    counts = {"added": 0, "duplicate": 0, "unsupported": 0}
-    for index, job in enumerate(jobs):
-        # A medicao e da chamada COMPLETA. Nao duplicar tokens pelos 4 pedidos.
-        record_usage = dict(usage, elapsed_seconds=round(seconds, 2),
-                            batch_size=len(jobs)) if index == 0 else None
+    """Guarda pedidos validos individualmente, isolando os invalidos sem nova chamada."""
+    mapped = index_batch(items, jobs)
+    counts = {"added": 0, "duplicate": 0, "unsupported": 0,
+              "completed_jobs": 0, "failed_jobs": []}
+    usage_written = False
+    for job in jobs:
+        jid = job["id"]
+        try:
+            distill.validate_response(mapped[jid], json.loads(job["request"]))
+        except ValueError as exc:
+            mark_failed(db, [job], str(exc))
+            counts["failed_jobs"].append({"job_id": jid, "error": str(exc)})
+            continue
+        # A utilizacao pertence a chamada inteira: registar numa unica linha.
+        record_usage = (dict(usage, elapsed_seconds=round(seconds, 2),
+                             batch_size=len(jobs)) if not usage_written else None)
         result = distill.store_response(
-            db, job, mapped[job["id"]], "codex-economico", model, record_usage
+            db, job, mapped[jid], "codex-economico", model, record_usage
         )
-        for key in counts:
+        usage_written = True
+        counts["completed_jobs"] += 1
+        for key in ("added", "duplicate", "unsupported"):
             counts[key] += result[key]
     return counts
 
@@ -120,12 +140,21 @@ def recover(db, raw_dir):
         if response.is_file():
             try:
                 items = distill.parse_response(response.read_text(encoding="utf-8"))["responses"]
-                mapped = validate_batch(items, [db.execute(
+                all_jobs = [db.execute(
                     "SELECT * FROM jobs WHERE id=?", (jid,)).fetchone()
-                    for jid in ids])
+                    for jid in ids]
+                mapped = index_batch(items, all_jobs)
                 for job in matched:
-                    distill.store_response(db, job, mapped[job["id"]],
-                                           "codex-economico", meta["model"])
+                    try:
+                        distill.validate_response(
+                            mapped[job["id"]], json.loads(job["request"]))
+                    except ValueError as exc:
+                        mark_failed(db, [job], str(exc))
+                        print("Resposta invalida arquivada:", job["id"], exc,
+                              file=sys.stderr)
+                    else:
+                        distill.store_response(db, job, mapped[job["id"]],
+                                               "codex-economico", meta["model"])
                     pending.pop(job["id"], None)
                 print("Recuperado lote:", manifest.name, flush=True)
                 continue
@@ -234,14 +263,21 @@ def run(args, config, db, work):
             elapsed = time.monotonic() - started
             counts = save_batch(db, group, items, args.model, metrics, elapsed)
             calls += 1
-            completed += len(group)
+            completed += counts["completed_jobs"]
             tokens = metrics.get("input_tokens", 0) + metrics.get("output_tokens", 0)
             token_total += tokens
             summary = dict(manifest, elapsed_seconds=round(elapsed, 2),
-                           usage=metrics, results=counts, status="done")
+                           usage=metrics, results=counts,
+                           status="partial" if counts["failed_jobs"] else "done")
             distill.write_json(str(prefix) + ".summary.json", summary)
-            print(f"Lote OK: {len(group)} pedidos, {counts['added']} conversas novas, "
-                  f"{tokens} tokens reportados.", flush=True)
+            print(f"Lote: {counts['completed_jobs']}/{len(group)} pedidos validos, "
+                  f"{counts['added']} conversas novas, {tokens} tokens reportados.",
+                  flush=True)
+            if counts["failed_jobs"]:
+                print("Lote parcialmente invalido; respostas validas preservadas. "
+                      "Geracao parada para revisao sem repetir a chamada:",
+                      counts["failed_jobs"], flush=True)
+                break
         except (Exception, KeyboardInterrupt) as exc:
             # Nao relancar reservas nem repetir lote possivelmente cobrado.
             mark_failed(db, group, str(exc))
