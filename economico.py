@@ -308,8 +308,8 @@ def main(argv=None):
     parser.add_argument("--codex-bin", default="codex")
     parser.add_argument("--timeout", type=int)
     args = parser.parse_args(argv)
-    if not 1 <= args.limit <= 20:
-        parser.error("--limit deve estar entre 1 e 20 (protecao inicial).")
+    if not 1 <= args.limit <= 200:
+        parser.error("--limit deve estar entre 1 e 200 (protecao contra execucoes demasiado longas).")
     if not 1 <= args.batch_size <= 4:
         parser.error("--batch-size deve estar entre 1 e 4.")
     work = Path(args.work).expanduser().resolve()
