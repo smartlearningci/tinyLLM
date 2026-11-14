@@ -37,7 +37,7 @@ Os tokens registados correspondem à chamada completa, não a cada pedido. Se o 
 
 ## Falhas e retoma conservadora
 
-Os resultados são validados antes da importação. Se um lote falhar, pára sem regeneração automática. Se houver uma interrupção súbita, a próxima execução procura respostas completas nos arquivos e tenta recuperá-las; caso contrário, marca o pedido como `error` para revisão humana. O programa usa o mesmo bloqueio de escrita `dados/queue.lock`.
+Cada pedido é validado separadamente: se um lote de quatro tiver três pedidos válidos e um inválido, os três válidos são guardados, o inválido passa a `error` e a geração pára para revisão, sem repetir automaticamente a chamada. O resumo do lote fica com `status: partial` e `failed_jobs` para permitir identificar o erro. Se o próprio JSON do lote estiver incompleto ou tiver IDs inconsistentes, o lote fica para análise manual. Se houver uma interrupção súbita, a próxima execução procura respostas completas nos arquivos e tenta recuperá-las; caso contrário, marca o pedido como `error` para revisão humana. O programa usa o mesmo bloqueio de escrita `dados/queue.lock`.
 
 ```bash
 python distill.py status
