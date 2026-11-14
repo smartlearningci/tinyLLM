@@ -28,14 +28,25 @@ def main():
                 if not isinstance(items, list):
                     raise ValueError("responses nao e lista")
                 ids = set(manifest["job_ids"])
-                seen = set()
+                counts = {}
                 for item in items:
                     jid = item.get("job_id") if isinstance(item, dict) else None
-                    if jid not in ids or jid in seen:
-                        raise ValueError("ID desconhecido ou repetido")
-                    seen.add(jid)
+                    if isinstance(jid, str):
+                        counts[jid] = counts.get(jid, 0) + 1
+                unknown = [x.get("job_id") if isinstance(x, dict) else None
+                           for x in items if not isinstance(x, dict) or
+                           x.get("job_id") not in ids]
+                if unknown:
+                    problems.append((manifest_path.name,
+                                     "IDs desconhecidos/mal formados: " + repr(unknown[:6])))
                 for item in items:
-                    jid = item["job_id"]
+                    if not isinstance(item, dict):
+                        continue
+                    jid = item.get("job_id")
+                    if jid not in ids or counts[jid] != 1:
+                        if jid in ids and counts[jid] != 1:
+                            problems.append((jid, "ID duplicado no arquivo"))
+                        continue
                     job = db.execute("SELECT * FROM jobs WHERE id=?", (jid,)).fetchone()
                     if job is None or job["status"] != "error" or job["provider"] != "codex-economico":
                         continue
