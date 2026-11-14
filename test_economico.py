@@ -57,6 +57,28 @@ class EconomicTests(unittest.TestCase):
             self.assertEqual(states["good3"], "done")
             self.assertEqual(states["bad"], "error")
 
+    def test_missing_response_preserves_other_jobs(self):
+        jobs = [self.job(jid) for jid in ("one", "two", "three", "four")]
+        items = [{"job_id": "one"}, {"job_id": "two"}]
+        with sqlite3.connect(":memory:") as db:
+            db.row_factory = sqlite3.Row
+            db.execute("CREATE TABLE jobs(id TEXT,status TEXT,error TEXT,updated TEXT)")
+            for job in jobs:
+                db.execute("INSERT INTO jobs VALUES(?,'running',NULL,NULL)", (job["id"],))
+            def store(database, job, item, provider, model, usage):
+                database.execute("UPDATE jobs SET status='done' WHERE id=?", (job["id"],))
+                database.commit()
+                return {"added": 6, "duplicate": 0, "unsupported": 0}
+            with patch.object(economico.distill, "validate_response"):
+                with patch.object(economico.distill, "store_response", side_effect=store):
+                    result = economico.save_batch(db, jobs, items, "gpt-6-luna",
+                                                  {"input_tokens": 12000}, 10.0)
+            self.assertEqual(result["completed_jobs"], 2)
+            self.assertEqual(result["added"], 12)
+            self.assertEqual(len(result["failed_jobs"]), 2)
+            self.assertEqual(dict(db.execute("SELECT id,status FROM jobs")),
+                             {"one": "done", "two": "done", "three": "error", "four": "error"})
+
     def test_codex_command_uses_low_before_exec(self):
         cmd = economico.codex_command(
             "codex", "gpt-6-luna", "low", Path("/tmp/response.json"), ephemeral=True)
