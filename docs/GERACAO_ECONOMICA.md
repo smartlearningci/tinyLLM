@@ -16,10 +16,10 @@ codex login status
 Primeiro testa um único lote, confirmando a aceitação do nome do modelo no Codex instalado:
 
 ```bash
-python economico.py --limit 4 --batch-size 4 --model gpt-6-luna
+python economico.py --limit 4 --batch-size 4 --model gpt-6-luna --reasoning-effort low
 ```
 
-Depois, o comando `python economico.py` utiliza por omissão o modelo `gpt-6-luna`, no máximo 20 pedidos e 4 por lote. Não arranca automaticamente um segundo bloco de 20. Para personalizar o ensaio, usa `--limit` (1 a 20) e `--batch-size` (1 a 4).
+Depois, o comando `python economico.py` utiliza por omissão o modelo `gpt-6-luna`, raciocínio `low`, no máximo 20 pedidos e 4 por lote. Para alterar o raciocínio, usa `--reasoning-effort` (low, medium, high ou xhigh). Não arranca automaticamente um segundo bloco de 20. Para personalizar o ensaio, usa `--limit` (1 a 20) e `--batch-size` (1 a 4).
 
 O modelo deve estar disponível no Codex CLI autenticado. Se não for reconhecido, a execução pára e não troca de modelo silenciosamente. O agrupamento pode economizar contexto repetido, mas não garante poupança de plafond.
 
