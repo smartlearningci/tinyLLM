@@ -87,6 +87,25 @@ class EconomicTests(unittest.TestCase):
             self.assertEqual(dict(db.execute("SELECT id,status FROM jobs")),
                              {"one": "done", "two": "done", "three": "error", "four": "error"})
 
+    def test_failure_streak_stops_only_after_three_consecutive_bad_batches(self):
+        streak = 0
+        for failures in ([{"job_id": "a"}], [], [{"job_id": "b"}],
+                         [{"job_id": "c"}], [{"job_id": "d"}]):
+            streak = economico.update_failure_streak(streak, failures)
+        self.assertEqual(streak, 3)
+        self.assertEqual(economico.update_failure_streak(streak, []), 0)
+
+    def test_run_summary_tracks_failed_jobs_and_conversations(self):
+        summary = economico.format_run_summary(
+            attempted=14, completed=12, failed=2, calls=7,
+            conversations=72, tokens=131535,
+            stop_reason="limite de falhas consecutivas",
+        )
+        self.assertIn("12/14 pedidos concluidos", summary)
+        self.assertIn("2 pedidos falhados", summary)
+        self.assertIn("72 conversas novas", summary)
+        self.assertIn("131535 tokens", summary)
+
     def test_codex_command_uses_low_before_exec(self):
         cmd = economico.codex_command(
             "codex", "gpt-6-luna", "low", Path("/tmp/response.json"), ephemeral=True)
