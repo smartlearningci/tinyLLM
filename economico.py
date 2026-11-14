@@ -29,12 +29,22 @@ def batch_prompt(jobs):
     if len(set(templates)) != 1:
         raise ValueError("O lote mistura versoes de prompt; processa cada versao separadamente.")
     requests = [json.loads(j["request"]) for j in jobs]
+    # O template original tem instrucoes de saida para um pedido singular.
+    template = templates[0].replace(
+        "Return only the requested JSON object.",
+        "Return only the requested JSON batch object.",
+    )
+    template = template.replace(
+        "Exact response format (no Markdown wrapper):",
+        "Format of EACH item inside responses (no Markdown wrapper):",
+    )
     return (
-        templates[0]
+        template
         + "\nBATCH OVERRIDE: Return exactly one response object per requested job_id, "
         "including every task slot. Do not merge jobs, omit jobs "
         "or change identifiers. NEVER return an empty responses array. "
         "For each job, provide all 6 examples (one per task slot). "
+        "The responses array must have exactly as many items as REQUESTS. "
         "All supported messages must alternate user, assistant, "
         "starting with user and ending with assistant; C6 requires 2 to 4 such exchanges. "
         "Keep citations verbatim and evidence source_ids exact."
