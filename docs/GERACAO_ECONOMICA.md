@@ -19,7 +19,7 @@ Primeiro testa um único lote, confirmando a aceitação do nome do modelo no Co
 python economico.py --limit 4 --batch-size 4 --model gpt-6-luna --reasoning-effort low
 ```
 
-Depois, o comando `python economico.py` utiliza por omissão o modelo `gpt-6-luna`, raciocínio `low`, no máximo 20 pedidos e 4 por lote. Para alterar o raciocínio, usa `--reasoning-effort` (low, medium, high ou xhigh). Não arranca automaticamente um segundo bloco de 20. Para personalizar o ensaio, usa `--limit` (1 a 20) e `--batch-size` (1 a 4).
+Depois, o comando `python economico.py` utiliza por omissão o modelo `gpt-6-luna`, raciocínio `low`, no máximo 20 pedidos e 2 por lote. Para alterar o raciocínio, usa `--reasoning-effort` (low, medium, high ou xhigh). Não arranca automaticamente um segundo bloco de 20. Para personalizar o ensaio, usa `--limit` (1 a 20) e `--batch-size` (1 a 4).
 
 O modelo deve estar disponível no Codex CLI autenticado. Se não for reconhecido, a execução pára e não troca de modelo silenciosamente. O agrupamento pode economizar contexto repetido, mas não garante poupança de plafond.
 
@@ -80,3 +80,11 @@ python distill.py status
 ```
 
 Se o ficheiro não for criado, não executes a importação. Pedidos sem resposta ou com JSON inválido ficam em `error` para revisão, sem repetição paga.
+
+## Reparação local conservadora
+
+`python recuperar_economico.py` também tenta corrigir uma citação quando **a mesma sequência de palavras** aparece **uma única vez** na fonte original e só existem diferenças de pontuação/aspas. Preserva o JSON original em `dados/raw/`, documenta cada alteração em `dados/respostas/recuperacao_economica/reparacoes.json` e só exporta pedidos que passam novamente por toda a validação. Não corrige paráfrases, fontes erradas, turnos fora de ordem nem respostas ausentes. **Rever o ficheiro de auditoria antes de importar**, sobretudo quando o texto contém números, frações ou medidas.
+
+## Porquê lotes de dois
+
+Um pedido gera seis exemplos; quatro pedidos obrigam o modelo a produzir até 24 exemplos e respetivas citações numa única resposta estruturada. Nos ensaios observou-se maior frequência de omissões com quatro pedidos, incluindo uma lista vazia. O schema permite `responses: []`, portanto a resposta pode respeitar o schema e falhar as regras de negócio. A instrução foi reforçada, mas a validação continua obrigatória. Subir de `low` para `medium` pode melhorar o seguimento das instruções, mas também pode aumentar os tokens de raciocínio e não garante resolver saídas vazias. Preferir `--batch-size 2 --reasoning-effort low` por omissão; testar `medium` em apenas dois pedidos se necessário, sempre comparando tokens por conversa válida.
