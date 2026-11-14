@@ -148,6 +148,20 @@ Os resultados aparecem em `dados/raw/eco-*.manifest.json`, `*.response.json`, `*
 
 A geração pode demorar várias sessões e requer disponibilidade do Codex; não existe uma execução permanente automática instalada por este guia.
 
+## 6A. Deixar a produção contínua durante a noite (Linux)
+
+Depois de `git pull --ff-only`, com o ambiente Python ativo e `codex login status` válido:
+
+```bash
+bash producao_continua.sh
+```
+
+O script liga automaticamente vários blocos de **até 200 pedidos** em `low`, lotes de **2**, até deixar de haver pendentes elegíveis. Guarda um log em `dados/logs/producao-AAAAmmdd-HHMMSS.log`. **Pára sem reiniciar** se houver três tipos de situação: falha de execução/infraestrutura, **5 lotes consecutivos com erros** ou ausência de pedidos pendentes. Um erro isolado não obriga à paragem. Não tenta automaticamente os `error` nem os `manual`; esses são tratados no passo seguinte.
+
+Se deixares o PC sem vigilância, **desativa a suspensão automática**, mantém o computador ligado à corrente e não inicies outros geradores. Para acompanhar noutra janela, usa `python distill.py status`. Deixar o programa aberto não garante que o Codex mantenha quota ou autenticação durante toda a noite; quando estes falharem o script interrompe, preservando o trabalho.
+
+Para interromper conscientemente, usa **Ctrl+C** na janela que executa o script. Nunca apagues `dados/queue.sqlite` nem os ficheiros `dados/raw`.
+
 ## 7. Resolver erros e pedidos manuais — sem perder trabalho
 
 Estados dos pedidos:
