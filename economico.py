@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execucao economica do TinyLLM: lotes, medicao e retoma conservadora.
 
-Por omissao: ate 20 pedidos, em lotes de 4, modelo gpt-6-luna e raciocinio low.
+Por omissao: ate 20 pedidos, em lotes de 2, modelo gpt-6-luna e raciocinio low.
 Nunca reenvia automaticamente um pedido 'running' ou 'error'.
 """
 import argparse
@@ -33,7 +33,9 @@ def batch_prompt(jobs):
         templates[0]
         + "\nBATCH OVERRIDE: Return exactly one response object per requested job_id, "
         "including every task slot. Do not merge jobs, omit jobs "
-        "or change identifiers. All supported messages must alternate user, assistant, "
+        "or change identifiers. NEVER return an empty responses array. "
+        "For each job, provide all 6 examples (one per task slot). "
+        "All supported messages must alternate user, assistant, "
         "starting with user and ending with assistant; C6 requires 2 to 4 such exchanges. "
         "Keep citations verbatim and evidence source_ids exact."
         "\nReturn an object with exactly one key: responses (an array of the individual response objects).\nREQUESTS\n" + distill.dumps(requests) + "\n"
@@ -299,7 +301,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--work", default=str(ROOT / "dados"))
     parser.add_argument("--limit", type=int, default=20)
-    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--model", default="gpt-6-luna")
     parser.add_argument("--reasoning-effort", choices=("low", "medium", "high", "xhigh"), default="low",
                         help="Nivel de raciocinio Codex; por omissao low.")
