@@ -25,6 +25,16 @@ class EconomicTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             economico.validate_batch([{"job_id":"a"}],[self.job("a"),self.job("b")])
 
+    def test_codex_command_uses_low_before_exec(self):
+        cmd = economico.codex_command(
+            "codex", "gpt-6-luna", "low", Path("/tmp/response.json"), ephemeral=True)
+        self.assertEqual(cmd[0:2], ["codex", "--ask-for-approval"])
+        self.assertEqual(cmd[cmd.index("-c") + 1], "model_reasoning_effort=low")
+        self.assertLess(cmd.index("-c"), cmd.index("exec"))
+        self.assertEqual(cmd[cmd.index("--model") + 1], "gpt-6-luna")
+        self.assertIn("--ephemeral", cmd)
+        self.assertEqual(cmd[-1], "-")
+
     def test_usage_last_event(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/"events"
