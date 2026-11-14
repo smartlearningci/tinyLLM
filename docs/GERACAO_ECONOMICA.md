@@ -19,7 +19,7 @@ Primeiro testa um único lote, confirmando a aceitação do nome do modelo no Co
 python economico.py --limit 4 --batch-size 4 --model gpt-6-luna --reasoning-effort low
 ```
 
-Depois, o comando `python economico.py` utiliza por omissão o modelo `gpt-6-luna`, raciocínio `low`, no máximo 20 pedidos e 2 por lote. Para alterar o raciocínio, usa `--reasoning-effort` (low, medium, high ou xhigh). Não arranca automaticamente um segundo bloco de 20. Para personalizar o ensaio, usa `--limit` (1 a 20) e `--batch-size` (1 a 4).
+Depois, o comando `python economico.py` utiliza por omissão o modelo `gpt-6-luna`, raciocínio `low`, por omissão 20 pedidos e 2 por lote. Pode pedir de 1 a 200 pedidos por execução com `--limit`, mantendo 2 por lote. Para alterar o raciocínio, usa `--reasoning-effort` (low, medium, high ou xhigh). Não arranca automaticamente um segundo bloco de 20. Para personalizar o ensaio, usa `--limit` (1 a 20) e `--batch-size` (1 a 4).
 
 O modelo deve estar disponível no Codex CLI autenticado. Se não for reconhecido, a execução pára e não troca de modelo silenciosamente. O agrupamento pode economizar contexto repetido, mas não garante poupança de plafond.
 
@@ -88,3 +88,13 @@ Se o ficheiro não for criado, não executes a importação. Pedidos sem respost
 ## Porquê lotes de dois
 
 Um pedido gera seis exemplos; quatro pedidos obrigam o modelo a produzir até 24 exemplos e respetivas citações numa única resposta estruturada. Nos ensaios observou-se maior frequência de omissões com quatro pedidos, incluindo uma lista vazia. O schema permite `responses: []`, portanto a resposta pode respeitar o schema e falhar as regras de negócio. A instrução foi reforçada, mas a validação continua obrigatória. Subir de `low` para `medium` pode melhorar o seguimento das instruções, mas também pode aumentar os tokens de raciocínio e não garante resolver saídas vazias. Preferir `--batch-size 2 --reasoning-effort low` por omissão; testar `medium` em apenas dois pedidos se necessário, sempre comparando tokens por conversa válida.
+
+## Produção em quantidade
+
+Após confirmar os testes, executar, por exemplo:
+
+```bash
+python economico.py --model gpt-6-luna --reasoning-effort low --limit 100 --batch-size 2
+```
+
+`--limit 100` permite até 50 chamadas; `--limit 200`, até 100 chamadas. **Os valores são máximos**, não promessas de execução completa: o processo pára ao primeiro lote parcialmente inválido e preserva os pedidos válidos. Uma nova execução seleciona apenas os pendentes e nunca repete automaticamente os erros. A saída vazia `{\"responses\":[]}` é um erro do modelo (ou de cumprimento do formato) mesmo que obedeça ao schema JSON, pelo que não permite importar conversas. O prompt em lote passou a esclarecer que o formato singular documentado é de cada item individual e que o número de respostas deve corresponder ao número de pedidos.
