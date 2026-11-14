@@ -12,8 +12,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parent
-GUIDES = ['README.md','dados/README.md','dados/GERAR_CHAT.md','dados/GERAR_CLI.md',
-          'notebooks/README.md','notebooks/NOVO_TREINO.md','modelos/README.md']
+GUIDES = ['docs/FLUXO_COMPLETO.md','README.md','dados/README.md',
+          'dados/GERAR_CHAT.md','dados/GERAR_CLI.md','docs/GERACAO_ECONOMICA.md',
+          'docs/AUDITORIA_DATASET.md','notebooks/README.md',
+          'notebooks/NOVO_TREINO.md','modelos/README.md']
 HTML = r'''<!doctype html>
 <html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TinySLM · Painel</title>
 <style>
