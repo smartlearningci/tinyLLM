@@ -215,6 +215,22 @@ def codex_command(executable, model, reasoning_effort, output, ephemeral=False):
     return cmd
 
 
+def update_failure_streak(streak, failed_jobs):
+    """Conta lotes consecutivos com pelo menos um pedido invalido."""
+    return streak + 1 if failed_jobs else 0
+
+
+def format_run_summary(attempted, completed, failed, calls, conversations, tokens,
+                       stop_reason):
+    return (
+        f"RESUMO: {completed}/{attempted} pedidos concluidos, "
+        f"{failed} pedidos falhados, {conversations} conversas novas, "
+        f"{calls} chamadas, {tokens} tokens reportados. "
+        f"Motivo de paragem: {stop_reason}. "
+        "Consulta dados/raw/eco-*.summary.json."
+    )
+
+
 def run(args, config, db, work):
     executable = shutil.which(args.codex_bin)
     if not executable:
@@ -234,11 +250,14 @@ def run(args, config, db, work):
     recover(db, raw_dir)
 
     attempted = completed = calls = 0
-    token_total = 0
+    failed = conversations = token_total = 0
+    consecutive_failures = 0
+    stop_reason = "limite de pedidos"
     while attempted < args.limit:
         group = selected_jobs(db, args.limit - attempted, args.batch_size,
                               config["max_attempts"])
         if not group:
+            stop_reason = "sem pedidos pendentes elegiveis"
             break
         prompt = batch_prompt(group)
         ids = [j["id"] for j in group]
@@ -282,6 +301,10 @@ def run(args, config, db, work):
             counts = save_batch(db, group, items, args.model, metrics, elapsed)
             calls += 1
             completed += counts["completed_jobs"]
+            failed += len(counts["failed_jobs"])
+            conversations += counts["added"]
+            consecutive_failures = update_failure_streak(
+                consecutive_failures, counts["failed_jobs"])
             tokens = metrics.get("input_tokens", 0) + metrics.get("output_tokens", 0)
             token_total += tokens
             summary = dict(manifest, elapsed_seconds=round(elapsed, 2),
@@ -292,10 +315,16 @@ def run(args, config, db, work):
                   f"{counts['added']} conversas novas, {tokens} tokens reportados.",
                   flush=True)
             if counts["failed_jobs"]:
-                print("Lote parcialmente invalido; respostas validas preservadas. "
-                      "Geracao parada para revisao sem repetir a chamada:",
-                      counts["failed_jobs"], flush=True)
-                break
+                print(
+                    f"Lote parcial: {len(counts['failed_jobs'])} pedidos invalidos "
+                    f"(falhas consecutivas: {consecutive_failures}/{args.max_consecutive_failures}). "
+                    "Respostas validas preservadas; nao ha retry automatico:",
+                    counts["failed_jobs"], flush=True,
+                )
+                if consecutive_failures >= args.max_consecutive_failures:
+                    stop_reason = "limite de falhas consecutivas"
+                    print("Paragem preventiva por falhas consecutivas.", flush=True)
+                    break
         except (Exception, KeyboardInterrupt) as exc:
             # Nao relancar reservas nem repetir lote possivelmente cobrado.
             mark_failed(db, group, str(exc))
@@ -303,8 +332,8 @@ def run(args, config, db, work):
                   "Inspeciona dados/raw; usa retry apenas depois de verificar.",
                   file=sys.stderr, flush=True)
             raise
-    print(f"RESUMO: {completed}/{attempted} pedidos concluidos, {calls} chamadas, "
-          f"{token_total} tokens reportados. Consulta dados/raw/eco-*.summary.json.")
+    print(format_run_summary(attempted, completed, failed, calls,
+                             conversations, token_total, stop_reason), flush=True)
 
 
 def main(argv=None):
@@ -312,6 +341,8 @@ def main(argv=None):
     parser.add_argument("--work", default=str(ROOT / "dados"))
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--max-consecutive-failures", type=int, default=3,
+                        help="Parar apos N lotes consecutivos com erros (default: 3).")
     parser.add_argument("--model", default="gpt-6-luna")
     parser.add_argument("--reasoning-effort", choices=("low", "medium", "high", "xhigh"), default="low",
                         help="Nivel de raciocinio Codex; por omissao low.")
@@ -322,6 +353,8 @@ def main(argv=None):
         parser.error("--limit deve estar entre 1 e 200 (protecao contra execucoes demasiado longas).")
     if not 1 <= args.batch_size <= 4:
         parser.error("--batch-size deve estar entre 1 e 4.")
+    if not 1 <= args.max_consecutive_failures <= 10:
+        parser.error("--max-consecutive-failures deve estar entre 1 e 10.")
     work = Path(args.work).expanduser().resolve()
     work.mkdir(parents=True, exist_ok=True)
     config = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
