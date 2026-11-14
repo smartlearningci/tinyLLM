@@ -57,8 +57,8 @@ def usage_from_events(path):
 
 def index_batch(items, jobs):
     """Confere IDs do lote sem descartar respostas validas por erro de outro pedido."""
-    if not isinstance(items, list) or len(items) != len(jobs):
-        raise ValueError("O numero de respostas nao coincide com o numero de pedidos.")
+    if not isinstance(items, list):
+        raise ValueError("O lote de respostas tem de ser uma lista.")
     expected = {j["id"]: j for j in jobs}
     seen = set()
     for item in items:
@@ -75,6 +75,8 @@ def validate_batch(items, jobs):
     """Valida todos os pedidos; usado na verificacao estrita."""
     mapped = index_batch(items, jobs)
     for job in jobs:
+        if job["id"] not in mapped:
+            raise ValueError("Resposta em falta para pedido " + job["id"])
         distill.validate_response(mapped[job["id"]], json.loads(job["request"]))
     return mapped
 
@@ -99,6 +101,8 @@ def save_batch(db, jobs, items, model, usage, seconds):
     for job in jobs:
         jid = job["id"]
         try:
+            if jid not in mapped:
+                raise ValueError("Resposta em falta no lote.")
             distill.validate_response(mapped[jid], json.loads(job["request"]))
         except ValueError as exc:
             mark_failed(db, [job], str(exc))
@@ -146,6 +150,8 @@ def recover(db, raw_dir):
                 mapped = index_batch(items, all_jobs)
                 for job in matched:
                     try:
+                        if job["id"] not in mapped:
+                            raise ValueError("Resposta em falta no lote.")
                         distill.validate_response(
                             mapped[job["id"]], json.loads(job["request"]))
                     except ValueError as exc:
