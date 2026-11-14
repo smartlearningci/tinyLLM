@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 import economico
 
 class EconomicTests(unittest.TestCase):
@@ -24,6 +25,37 @@ class EconomicTests(unittest.TestCase):
     def test_missing_job_rejected(self):
         with self.assertRaises(ValueError):
             economico.validate_batch([{"job_id":"a"}],[self.job("a"),self.job("b")])
+
+    def test_partial_batch_preserves_three_valid_jobs(self):
+        jobs = [self.job(jid) for jid in ("good1", "good2", "good3", "bad")]
+        items = [{"job_id": jid} for jid in ("good1", "good2", "good3", "bad")]
+        with sqlite3.connect(":memory:") as db:
+            db.row_factory = sqlite3.Row
+            db.execute("CREATE TABLE jobs(id TEXT,status TEXT,error TEXT,updated TEXT)")
+            for job in jobs:
+                db.execute("INSERT INTO jobs VALUES(?,'running',NULL,NULL)", (job["id"],))
+
+            def validate(item, request):
+                if item["job_id"] == "bad":
+                    raise ValueError("Ordem de mensagens inválida.")
+
+            def store(database, job, item, provider, model, usage):
+                database.execute("UPDATE jobs SET status='done' WHERE id=?", (job["id"],))
+                database.commit()
+                return {"added": 6, "duplicate": 0, "unsupported": 0}
+
+            with patch.object(economico.distill, "validate_response", side_effect=validate):
+                with patch.object(economico.distill, "store_response", side_effect=store):
+                    counts = economico.save_batch(db, jobs, items, "gpt-6-luna",
+                                                  {"input_tokens": 25000}, 15.0)
+            self.assertEqual(counts["added"], 18)
+            self.assertEqual(counts["completed_jobs"], 3)
+            self.assertEqual([x["job_id"] for x in counts["failed_jobs"]], ["bad"])
+            states = dict(db.execute("SELECT id,status FROM jobs"))
+            self.assertEqual(states["good1"], "done")
+            self.assertEqual(states["good2"], "done")
+            self.assertEqual(states["good3"], "done")
+            self.assertEqual(states["bad"], "error")
 
     def test_codex_command_uses_low_before_exec(self):
         cmd = economico.codex_command(
