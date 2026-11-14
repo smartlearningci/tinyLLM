@@ -108,3 +108,15 @@ python economico.py --model gpt-6-luna --reasoning-effort low --limit 200 --batc
 ```
 
 O resumo final apresenta pedidos concluídos, pedidos falhados, conversas novas, chamadas e tokens reportados. A contagem de tokens do lote inclui o custo da chamada mesmo se não produzir conversas válidas. Os ficheiros `eco-*.summary.json` preservam os resultados de cada chamada.
+
+## IDs errados em respostas de lotes (Novembro 2026)
+
+Uma resposta com `job_id` desconhecido ou mal formado **não é associada por ordem** a outro pedido. O gerador importa apenas respostas com IDs conhecidos e únicos, valida separadamente cada uma e marca como `error` os pedidos sem resposta válida. O resumo do lote regista `unexpected_responses` e `duplicate_job_ids`, além de `failed_jobs`. A execução continua, sujeita à paragem após três lotes consecutivos com erros.
+
+Para procurar respostas de um lote interrompido **sem chamar o modelo**:
+
+```bash
+python recuperar_economico.py
+```
+
+O recuperador agora ignora entradas com IDs desconhecidos ou duplicados e pode preservar as restantes respostas com IDs corretos. Revisa a auditoria e importa apenas se criar um ficheiro de respostas válidas. Não corrige automaticamente IDs desconhecidos, porque isso pode misturar receitas.
