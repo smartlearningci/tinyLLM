@@ -90,6 +90,36 @@ class EconomicTests(unittest.TestCase):
             self.assertEqual(dict(db.execute("SELECT id,status FROM jobs")),
                              {"one": "done", "two": "done", "three": "error", "four": "error"})
 
+    def test_unknown_id_preserves_known_response(self):
+        jobs = [self.job("a"), self.job("b")]
+        items = [{"job_id": "a"}, {"job_id": "unknown"}]
+        with sqlite3.connect(":memory:") as db:
+            db.row_factory = sqlite3.Row
+            db.execute("CREATE TABLE jobs(id TEXT,status TEXT,error TEXT,updated TEXT)")
+            for job in jobs:
+                db.execute("INSERT INTO jobs VALUES(?,'running',NULL,NULL)", (job["id"],))
+            def fake_store(database, job, item, provider, model, usage):
+                database.execute("UPDATE jobs SET status='done' WHERE id=?", (job["id"],))
+                database.commit()
+                return {"added": 6, "duplicate": 0, "unsupported": 0}
+            with patch.object(economico.distill, "validate_response"), \
+                 patch.object(economico.distill, "store_response", side_effect=fake_store):
+                result = economico.save_batch(db, jobs, items, "gpt-6-luna",
+                                              {"output_tokens": 500}, 3.0)
+            self.assertEqual(result["completed_jobs"], 1)
+            self.assertEqual(result["added"], 6)
+            self.assertEqual(len(result["unexpected_responses"]), 1)
+            self.assertEqual(dict(db.execute("SELECT id,status FROM jobs")),
+                             {"a": "done", "b": "error"})
+
+    def test_duplicate_id_rejected_but_other_job_preserved(self):
+        jobs = [self.job("a"), self.job("b")]
+        items = [{"job_id": "a"}, {"job_id": "a"}, {"job_id": "b"}]
+        mapped, duplicates, unknown = economico.partition_batch(items, jobs)
+        self.assertEqual(set(mapped), {"b"})
+        self.assertEqual(duplicates, {"a"})
+        self.assertFalse(unknown)
+
     def test_production_run_continues_and_stops_at_three_bad_batches(self):
         with tempfile.TemporaryDirectory() as folder:
             work = Path(folder)
