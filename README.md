@@ -28,6 +28,8 @@ Abre http://127.0.0.1:8766. A migração copia a fila, receitas, logs e pastas d
 
 ## Onde encontrar ajuda
 
+**[Começar aqui — Fluxo completo de trabalho](docs/FLUXO_COMPLETO.md)**: guia central com os comandos pela ordem correta, objetivo das 5 108 receitas, planeamento, geração, recuperação, auditoria e próximo treino.
+
 - [Dados e estados](dados/README.md)
 - [Gerar aqui no chat](dados/GERAR_CHAT.md)
 - [Gerar automaticamente por CLI](dados/GERAR_CLI.md)
@@ -47,9 +49,7 @@ Para reduzir instruções repetidas, há um comando independente que gera em lot
 mede tokens quando o Codex os reporta e não repete automaticamente falhas:
 
 ```bash
-python economico.py --limit 4 --batch-size 4 --model gpt-6-luna
+python economico.py --model gpt-6-luna --reasoning-effort low --limit 200 --batch-size 2 --max-consecutive-failures 3
 ```
 
-Depois do primeiro ensaio, `python economico.py` limita a 20 pedidos, em lotes
-de 4, usando `gpt-6-luna` com raciocínio `low`. Consulta [o guia de geração económica](docs/GERACAO_ECONOMICA.md)
-antes de usar. Este modo não modifica a geração via chat.
+Por omissão, o modo económico usa 20 pedidos por execução e lotes de 2. `--limit` permite até 200 pedidos por execução, respeitando a paragem preventiva após falhas consecutivas. Consulta [o guia de geração económica](docs/GERACAO_ECONOMICA.md) para erros, tokens e recuperação. Este modo não modifica a geração via chat.
