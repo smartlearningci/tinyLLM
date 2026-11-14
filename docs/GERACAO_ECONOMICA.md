@@ -19,7 +19,7 @@ Primeiro testa um único lote, confirmando a aceitação do nome do modelo no Co
 python economico.py --limit 4 --batch-size 4 --model gpt-6-luna --reasoning-effort low
 ```
 
-Depois, o comando `python economico.py` utiliza por omissão o modelo `gpt-6-luna`, raciocínio `low`, por omissão 20 pedidos e 2 por lote. Pode pedir de 1 a 200 pedidos por execução com `--limit`, mantendo 2 por lote. Para alterar o raciocínio, usa `--reasoning-effort` (low, medium, high ou xhigh). Não arranca automaticamente um segundo bloco de 20. Para personalizar o ensaio, usa `--limit` (1 a 20) e `--batch-size` (1 a 4).
+Depois, o comando `python economico.py` utiliza por omissão o modelo `gpt-6-luna`, raciocínio `low`, por omissão 20 pedidos e 2 por lote. Pode pedir de 1 a 200 pedidos por execução com `--limit`, mantendo 2 por lote. Para alterar o raciocínio, usa `--reasoning-effort` (low, medium, high ou xhigh). Não arranca automaticamente um segundo bloco de 20. Para personalizar o ensaio, usa `--limit` (1 a 200), `--batch-size` (1 a 4) e `--max-consecutive-failures` (1 a 10, por omissão 3).
 
 O modelo deve estar disponível no Codex CLI autenticado. Se não for reconhecido, a execução pára e não troca de modelo silenciosamente. O agrupamento pode economizar contexto repetido, mas não garante poupança de plafond.
 
@@ -37,7 +37,7 @@ Os tokens registados correspondem à chamada completa, não a cada pedido. Se o 
 
 ## Falhas e retoma conservadora
 
-Cada pedido é validado separadamente: respostas válidas são guardadas mesmo que um dos quatro pedidos seja inválido **ou tenha sido omitido** pelo Codex. O pedido inválido ou omitido passa a `error` e a geração pára para revisão, sem repetir automaticamente a chamada. O resumo do lote fica com `status: partial` e `failed_jobs` para permitir identificar o erro. Se o próprio JSON do lote estiver incompleto ou tiver IDs inconsistentes, o lote fica para análise manual. Se houver uma interrupção súbita, a próxima execução procura respostas completas nos arquivos e tenta recuperá-las; caso contrário, marca o pedido como `error` para revisão humana. O programa usa o mesmo bloqueio de escrita `dados/queue.lock`.
+Cada pedido é validado separadamente: respostas válidas são guardadas mesmo que um dos quatro pedidos seja inválido **ou tenha sido omitido** pelo Codex. O pedido inválido ou omitido passa a `error`; a geração continua com novos pendentes e não repete automaticamente essa chamada. Se **3 lotes consecutivos** apresentarem pelo menos um erro, a execução pára preventivamente (configurável com `--max-consecutive-failures`). Um lote totalmente válido repõe o contador de falhas consecutivas a zero. O resumo do lote fica com `status: partial` e `failed_jobs` para permitir identificar o erro. Se o próprio JSON do lote estiver incompleto ou tiver IDs inconsistentes, o lote fica para análise manual. Se houver uma interrupção súbita, a próxima execução procura respostas completas nos arquivos e tenta recuperá-las; caso contrário, marca o pedido como `error` para revisão humana. O programa usa o mesmo bloqueio de escrita `dados/queue.lock`.
 
 ```bash
 python distill.py status
@@ -97,4 +97,14 @@ Após confirmar os testes, executar, por exemplo:
 python economico.py --model gpt-6-luna --reasoning-effort low --limit 100 --batch-size 2
 ```
 
-`--limit 100` permite até 50 chamadas; `--limit 200`, até 100 chamadas. **Os valores são máximos**, não promessas de execução completa: o processo pára ao primeiro lote parcialmente inválido e preserva os pedidos válidos. Uma nova execução seleciona apenas os pendentes e nunca repete automaticamente os erros. A saída vazia `{\"responses\":[]}` é um erro do modelo (ou de cumprimento do formato) mesmo que obedeça ao schema JSON, pelo que não permite importar conversas. O prompt em lote passou a esclarecer que o formato singular documentado é de cada item individual e que o número de respostas deve corresponder ao número de pedidos.
+`--limit 100` permite até 50 chamadas; `--limit 200`, até 100 chamadas. **Os valores são máximos**, não promessas de execução completa: o processo continua após uma falha isolada, preserva os pedidos válidos e pára ao atingir o limite de falhas consecutivas, esgotar os pendentes ou alcançar o limite indicado. Uma nova execução seleciona apenas os pendentes e nunca repete automaticamente os erros. A saída vazia `{\"responses\":[]}` é um erro do modelo (ou de cumprimento do formato) mesmo que obedeça ao schema JSON, pelo que não permite importar conversas. O prompt em lote passou a esclarecer que o formato singular documentado é de cada item individual e que o número de respostas deve corresponder ao número de pedidos.
+
+## Continuação automática segura (Novembro 2026)
+
+O modo económico continua para o próximo lote após respostas parcialmente válidas ou vazias, sem repetir os pedidos já marcados como `error`. Um lote que contenha **qualquer** pedido inválido conta como um lote falhado; um lote integralmente válido repõe o contador a zero. Com três lotes consecutivos falhados, pára e apresenta um resumo geral. **Erros de infraestrutura**, como falha do Codex CLI, timeout ou JSON malformado, continuam a provocar paragem para investigação, preservando ficheiros e estados, sem retry automático.
+
+```bash
+python economico.py --model gpt-6-luna --reasoning-effort low --limit 200 --batch-size 2 --max-consecutive-failures 3
+```
+
+O resumo final apresenta pedidos concluídos, pedidos falhados, conversas novas, chamadas e tokens reportados. A contagem de tokens do lote inclui o custo da chamada mesmo se não produzir conversas válidas. Os ficheiros `eco-*.summary.json` preservam os resultados de cada chamada.
