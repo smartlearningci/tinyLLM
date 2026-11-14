@@ -83,6 +83,28 @@ def index_batch(items, jobs):
     return {item["job_id"]: item for item in items}
 
 
+def partition_batch(items, jobs):
+    """Isola respostas reconhecidas e unicas, sem associar IDs desconhecidos por suposicao."""
+    if not isinstance(items, list):
+        raise ValueError("O lote de respostas tem de ser uma lista.")
+    expected = {j["id"] for j in jobs}
+    mapped = {}
+    duplicated = set()
+    unexpected = []
+    for index, item in enumerate(items):
+        jid = item.get("job_id") if isinstance(item, dict) else None
+        if not isinstance(jid, str) or jid not in expected:
+            unexpected.append({"index": index, "job_id": str(jid)[:120]})
+        elif jid in mapped:
+            duplicated.add(jid)
+        else:
+            mapped[jid] = item
+    # Um ID duplicado e ambiguo: nao importar nenhuma das copias.
+    for jid in duplicated:
+        mapped.pop(jid, None)
+    return mapped, duplicated, unexpected
+
+
 def validate_batch(items, jobs):
     """Valida todos os pedidos; usado na verificacao estrita."""
     mapped = index_batch(items, jobs)
@@ -106,13 +128,17 @@ def mark_failed(db, jobs, message):
 
 def save_batch(db, jobs, items, model, usage, seconds):
     """Guarda pedidos validos individualmente, isolando os invalidos sem nova chamada."""
-    mapped = index_batch(items, jobs)
+    mapped, duplicated_ids, unexpected = partition_batch(items, jobs)
     counts = {"added": 0, "duplicate": 0, "unsupported": 0,
-              "completed_jobs": 0, "failed_jobs": []}
+              "completed_jobs": 0, "failed_jobs": [],
+              "unexpected_responses": unexpected,
+              "duplicate_job_ids": sorted(duplicated_ids)}
     usage_written = False
     for job in jobs:
         jid = job["id"]
         try:
+            if jid in duplicated_ids:
+                raise ValueError("job_id repetido no lote.")
             if jid not in mapped:
                 raise ValueError("Resposta em falta no lote.")
             distill.validate_response(mapped[jid], json.loads(job["request"]))
@@ -159,9 +185,14 @@ def recover(db, raw_dir):
                 all_jobs = [db.execute(
                     "SELECT * FROM jobs WHERE id=?", (jid,)).fetchone()
                     for jid in ids]
-                mapped = index_batch(items, all_jobs)
+                mapped, duplicated_ids, unexpected = partition_batch(items, all_jobs)
+                if unexpected:
+                    print("Respostas com IDs desconhecidos no arquivo:",
+                          manifest.name, unexpected, file=sys.stderr)
                 for job in matched:
                     try:
+                        if job["id"] in duplicated_ids:
+                            raise ValueError("job_id repetido no lote.")
                         if job["id"] not in mapped:
                             raise ValueError("Resposta em falta no lote.")
                         distill.validate_response(
@@ -314,6 +345,10 @@ def run(args, config, db, work):
             print(f"Lote: {counts['completed_jobs']}/{len(group)} pedidos validos, "
                   f"{counts['added']} conversas novas, {tokens} tokens reportados.",
                   flush=True)
+            if counts["unexpected_responses"]:
+                print("AVISO: respostas com job_id desconhecido ou mal formado; "
+                      "ignoradas sem reatribuir a outro pedido:",
+                      counts["unexpected_responses"], flush=True)
             if counts["failed_jobs"]:
                 print(
                     f"Lote parcial: {len(counts['failed_jobs'])} pedidos invalidos "
