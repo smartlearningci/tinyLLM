@@ -37,7 +37,7 @@ Os tokens registados correspondem à chamada completa, não a cada pedido. Se o 
 
 ## Falhas e retoma conservadora
 
-Cada pedido é validado separadamente: se um lote de quatro tiver três pedidos válidos e um inválido, os três válidos são guardados, o inválido passa a `error` e a geração pára para revisão, sem repetir automaticamente a chamada. O resumo do lote fica com `status: partial` e `failed_jobs` para permitir identificar o erro. Se o próprio JSON do lote estiver incompleto ou tiver IDs inconsistentes, o lote fica para análise manual. Se houver uma interrupção súbita, a próxima execução procura respostas completas nos arquivos e tenta recuperá-las; caso contrário, marca o pedido como `error` para revisão humana. O programa usa o mesmo bloqueio de escrita `dados/queue.lock`.
+Cada pedido é validado separadamente: respostas válidas são guardadas mesmo que um dos quatro pedidos seja inválido **ou tenha sido omitido** pelo Codex. O pedido inválido ou omitido passa a `error` e a geração pára para revisão, sem repetir automaticamente a chamada. O resumo do lote fica com `status: partial` e `failed_jobs` para permitir identificar o erro. Se o próprio JSON do lote estiver incompleto ou tiver IDs inconsistentes, o lote fica para análise manual. Se houver uma interrupção súbita, a próxima execução procura respostas completas nos arquivos e tenta recuperá-las; caso contrário, marca o pedido como `error` para revisão humana. O programa usa o mesmo bloqueio de escrita `dados/queue.lock`.
 
 ```bash
 python distill.py status
@@ -61,3 +61,22 @@ python monitor.py --port 8766
 ```
 
 Os dados locais de geração continuam excluídos do GitHub pelo `.gitignore`.
+
+## Recuperar lotes antigos, sem novo consumo
+
+Se um lote antigo deu erro antes de importar as respostas presentes no arquivo:
+
+```bash
+python recuperar_economico.py
+```
+
+O script verifica os JSON originais de `dados/raw/eco-*.response.json`, cruza os IDs com os manifestos e valida apenas pedidos ainda em `error` provenientes do modo económico. Não chama o modelo, não muda estados e não apaga os originais. Quando encontra respostas válidas, guarda `dados/respostas/recuperacao_economica/respostas_validas.json`.
+
+Para efetivar a importação, depois de ler o relatório:
+
+```bash
+python distill.py import dados/respostas/recuperacao_economica/respostas_validas.json --provider codex-economico --teacher gpt-6-luna
+python distill.py status
+```
+
+Se o ficheiro não for criado, não executes a importação. Pedidos sem resposta ou com JSON inválido ficam em `error` para revisão, sem repetição paga.
