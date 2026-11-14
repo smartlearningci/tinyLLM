@@ -18,6 +18,14 @@ class EconomicTests(unittest.TestCase):
         self.assertIn('"job_id":"one"',text)
         self.assertIn('"job_id":"two"',text)
 
+    def test_batch_prompt_overrides_singular_output_format(self):
+        template = ("Return only the requested JSON object.\n"
+                    "Exact response format (no Markdown wrapper):\n{}")
+        result = economico.batch_prompt([self.job("one", template), self.job("two", template)])
+        self.assertIn("Return only the requested JSON batch object.", result)
+        self.assertIn("Format of EACH item inside responses", result)
+        self.assertIn("exactly as many items as REQUESTS", result)
+
     def test_mixed_template_rejected(self):
         with self.assertRaises(ValueError):
             economico.batch_prompt([self.job("a"),self.job("b","Other")])
