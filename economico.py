@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Execucao economica do TinyLLM: lotes, medicao e retoma conservadora.
 
-Por omissao: ate 20 pedidos, em lotes de 4, modelo gpt-6-luna.
+Por omissao: ate 20 pedidos, em lotes de 4, modelo gpt-6-luna e raciocinio low.
 Nunca reenvia automaticamente um pedido 'running' ou 'error'.
 """
 import argparse
@@ -154,6 +154,20 @@ def selected_jobs(db, limit, batch_size, max_attempts):
     return group[:batch_size]
 
 
+def codex_command(executable, model, reasoning_effort, output, ephemeral=False):
+    """Configura raciocinio no nivel global do Codex, antes de exec."""
+    cmd = [
+        executable, "--ask-for-approval", "never",
+        "-c", f"model_reasoning_effort={reasoning_effort}",
+        "exec", "--sandbox", "read-only", "--skip-git-repo-check",
+        "--output-schema", str(BATCH_SCHEMA), "--json", "-o", str(output),
+    ]
+    if ephemeral:
+        cmd.append("--ephemeral")
+    cmd.extend(["--model", model, "-"])
+    return cmd
+
+
 def run(args, config, db, work):
     executable = shutil.which(args.codex_bin)
     if not executable:
@@ -185,7 +199,7 @@ def run(args, config, db, work):
         prefix = raw_dir / stem
         # Manifesto antes de cobrar qualquer chamada: permite recuperacao apos crash.
         manifest = {"job_ids": ids, "attempts": {j["id"]: j["attempts"] + 1 for j in group}, "model": args.model,
-                    "created": distill.now()}
+                    "created": distill.now(), "reasoning_effort": args.reasoning_effort}
         distill.write_json(str(prefix) + ".manifest.json", manifest)
         with db:
             for job in group:
@@ -199,15 +213,10 @@ def run(args, config, db, work):
         try:
             with tempfile.TemporaryDirectory(prefix="tinyslm-eco-") as folder:
                 output = Path(folder) / "response.json"
-                cmd = [
-                    executable, "--ask-for-approval", "never", "exec",
-                    "--sandbox", "read-only", "--skip-git-repo-check",
-                    "--output-schema", str(BATCH_SCHEMA),
-                    "--json", "-o", str(output),
-                ]
-                if "--ephemeral" in help_result.stdout:
-                    cmd.append("--ephemeral")
-                cmd.extend(["--model", args.model, "-"])
+                cmd = codex_command(
+                    executable, args.model, args.reasoning_effort, output,
+                    ephemeral="--ephemeral" in help_result.stdout,
+                )
                 with (Path(str(prefix) + ".events.jsonl")).open("w", encoding="utf-8") as log, (
                     Path(str(prefix) + ".stderr.txt")
                 ).open("w", encoding="utf-8") as err:
@@ -250,6 +259,8 @@ def main(argv=None):
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--model", default="gpt-6-luna")
+    parser.add_argument("--reasoning-effort", choices=("low", "medium", "high", "xhigh"), default="low",
+                        help="Nivel de raciocinio Codex; por omissao low.")
     parser.add_argument("--codex-bin", default="codex")
     parser.add_argument("--timeout", type=int)
     args = parser.parse_args(argv)
