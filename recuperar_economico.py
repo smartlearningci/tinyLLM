@@ -4,6 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 import distill
+import reparacao_local
 
 ROOT = Path(__file__).resolve().parent
 
@@ -13,6 +14,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     recovered = []
     problems = []
+    repairs = []
     with sqlite3.connect(ROOT / "dados" / "queue.sqlite") as db:
         db.row_factory = sqlite3.Row
         for manifest_path in sorted(raw.glob("eco-*.manifest.json")):
@@ -40,7 +42,13 @@ def main():
                     try:
                         distill.validate_response(item, json.loads(job["request"]))
                     except ValueError as exc:
-                        problems.append((jid, str(exc)))
+                        corrected, edits = reparacao_local.repair_response(
+                            item, json.loads(job["request"]))
+                        if corrected is None:
+                            problems.append((jid, str(exc)))
+                            continue
+                        recovered.append(corrected)
+                        repairs.append({"job_id": jid, "changes": edits})
                         continue
                     recovered.append(item)
             except (OSError, ValueError, TypeError, KeyError) as exc:
@@ -48,12 +56,21 @@ def main():
     # Evita IDs duplicados se o mesmo pedido estiver arquivado em varios lotes.
     recovered = list({item["job_id"]: item for item in recovered}.values())
     path = out / "respostas_validas.json"
+    report = out / "reparacoes.json"
     if recovered:
         distill.write_json(path, recovered)
+        distill.write_json(report, repairs)
         print(f"{len(recovered)} pedidos validos recuperaveis, {len(problems)} avisos.")
         print("Ficheiro:", path)
+        print("Citacoes corrigidas por correspondencia literal:", len(repairs))
+        print("Auditoria:", report)
         print("Importar com: python distill.py import dados/respostas/recuperacao_economica/respostas_validas.json --provider codex-economico --teacher gpt-6-luna")
     else:
+        # Remove um ficheiro gerado anteriormente para evitar importacao acidental obsoleta.
+        if path.exists():
+            path.unlink()
+        if report.exists():
+            report.unlink()
         print("Nenhuma resposta valida pendente de importacao.")
     for jid, reason in problems[:20]:
         print("REVER:", jid, reason)
