@@ -1,4 +1,7 @@
 """Testes sem chamadas de rede nem consumo de quota."""
+import argparse
+import contextlib
+import io
 import json
 from pathlib import Path
 import sqlite3
@@ -86,6 +89,70 @@ class EconomicTests(unittest.TestCase):
             self.assertEqual(len(result["failed_jobs"]), 2)
             self.assertEqual(dict(db.execute("SELECT id,status FROM jobs")),
                              {"one": "done", "two": "done", "three": "error", "four": "error"})
+
+    def test_production_run_continues_and_stops_at_three_bad_batches(self):
+        with tempfile.TemporaryDirectory() as folder:
+            work = Path(folder)
+            db = economico.distill.open_db(work)
+            try:
+                for i in range(12):
+                    jid = f"job{i:02d}"
+                    req = {"job_id": jid, "recipe": {"source_id": "r", "text": "recipe"},
+                           "tasks": [], "knowledge": []}
+                    db.execute(
+                        "INSERT INTO jobs(id,recipe_id,prompt,request,status,attempts,created) "
+                        "VALUES(?,?,?,?,?,0,?)",
+                        (jid, "r", "Instruction\\nREQUEST\\n" + json.dumps(req),
+                         json.dumps(req), "pending", jid),
+                    )
+                db.commit()
+                calls = []
+
+                def fake_subprocess(cmd, **kwargs):
+                    if cmd[1:3] == ["login", "status"]:
+                        return argparse.Namespace(returncode=0, stdout="Logged in using ChatGPT", stderr="")
+                    if cmd[1:3] == ["exec", "--help"]:
+                        return argparse.Namespace(returncode=0, stdout="--output-schema --ephemeral", stderr="")
+                    calls.append(len(calls) + 1)
+                    requests = json.loads(kwargs["input"].split("\\nREQUESTS\\n")[-1])
+                    items = ([{"job_id": req["job_id"]} for req in requests]
+                             if len(calls) == 2 else [])
+                    Path(cmd[cmd.index("-o") + 1]).write_text(
+                        json.dumps({"responses": items}), encoding="utf-8")
+                    kwargs["stdout"].write(
+                        '{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":50}}\\n')
+                    return argparse.Namespace(returncode=0)
+
+                def fake_store(database, job, item, provider, model, usage=None):
+                    database.execute("UPDATE jobs SET status='done' WHERE id=?", (job["id"],))
+                    database.commit()
+                    return {"added": 6, "duplicate": 0, "unsupported": 0}
+
+                args = argparse.Namespace(codex_bin="codex", model="gpt-6-luna",
+                                          reasoning_effort="low", limit=12,
+                                          batch_size=2, timeout=10,
+                                          max_consecutive_failures=3)
+                patches = [
+                    patch.dict("os.environ", {}, clear=True),
+                    patch.object(economico.shutil, "which", return_value="/test/codex"),
+                    patch.object(economico.subprocess, "run", side_effect=fake_subprocess),
+                    patch.object(economico.distill, "validate_response"),
+                    patch.object(economico.distill, "store_response", side_effect=fake_store),
+                ]
+                with contextlib.ExitStack() as stack:
+                    for mocker in patches:
+                        stack.enter_context(mocker)
+                    output = io.StringIO()
+                    stack.enter_context(contextlib.redirect_stdout(output))
+                    economico.run(args, {"max_attempts": 3, "timeout_seconds": 60}, db, work)
+                self.assertEqual(len(calls), 5)
+                self.assertEqual(dict(db.execute(
+                    "SELECT status,COUNT(*) FROM jobs GROUP BY status")),
+                    {"done": 2, "error": 8, "pending": 2})
+                self.assertIn("limite de falhas consecutivas", output.getvalue())
+                self.assertIn("12 conversas novas", output.getvalue())
+            finally:
+                db.close()
 
     def test_failure_streak_stops_only_after_three_consecutive_bad_batches(self):
         streak = 0
