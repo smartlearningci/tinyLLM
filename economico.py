@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -182,6 +183,29 @@ def mark_failed(db, jobs, message):
             )
 
 
+def store_with_lock_retry(db, job, raw, model, usage, max_retries=5):
+    """Repete somente a gravacao SQLite, nunca a chamada ao modelo.
+
+    A resposta ja esta arquivada antes de chegar aqui. Uma transacao que
+    falha por SQLITE_BUSY e revertida antes de a repetir; isto evita
+    gravacoes parciais quando dois trabalhadores terminam ao mesmo tempo.
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            current = db.execute('SELECT status FROM jobs WHERE id=?', (job['id'],)).fetchone()
+            if current is None or current['status'] != 'running':
+                raise ValueError('Pedido deixou de estar em execucao; verificar antes de importar.')
+            return distill.store_response(db, job, raw, 'codex-economico', model, usage)
+        except sqlite3.OperationalError as exc:
+            db.rollback()
+            if 'locked' not in str(exc).lower() or attempt == max_retries:
+                raise
+            wait = min(2 ** attempt, 15)
+            print(f'SQLite ocupado; repetir apenas gravacao em {wait}s '
+                  f'(tentativa {attempt + 1}/{max_retries}).', flush=True)
+            time.sleep(wait)
+
+
 def save_batch(db, jobs, items, model, usage, seconds):
     """Guarda pedidos validos individualmente, isolando os invalidos sem nova chamada."""
     mapped, duplicated_ids, unexpected = partition_batch(items, jobs)
@@ -205,9 +229,7 @@ def save_batch(db, jobs, items, model, usage, seconds):
         # A utilizacao pertence a chamada inteira: registar numa unica linha.
         record_usage = (dict(usage, elapsed_seconds=round(seconds, 2),
                              batch_size=len(jobs)) if not usage_written else None)
-        result = distill.store_response(
-            db, job, mapped[jid], "codex-economico", model, record_usage
-        )
+        result = store_with_lock_retry(db, job, mapped[jid], model, record_usage)
         usage_written = True
         counts["completed_jobs"] += 1
         for key in ("added", "duplicate", "unsupported"):
