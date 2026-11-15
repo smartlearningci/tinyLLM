@@ -11,6 +11,34 @@ from unittest.mock import patch
 import economico
 
 class EconomicTests(unittest.TestCase):
+    def test_quota_detection_requires_explicit_error(self):
+        with tempfile.TemporaryDirectory() as folder:
+            events = Path(folder) / "events.jsonl"
+            errors = Path(folder) / "stderr.txt"
+            events.write_text('', encoding='utf-8')
+            errors.write_text('schema validation failed', encoding='utf-8')
+            self.assertFalse(economico.is_quota_error(events, errors))
+            errors.write_text('429: rate_limit_exceeded', encoding='utf-8')
+            self.assertTrue(economico.is_quota_error(events, errors))
+
+    def test_quota_pause_is_shared_and_has_single_probe(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with contextlib.closing(economico.distill.open_db(Path(folder))) as a, \
+                 contextlib.closing(economico.distill.open_db(Path(folder))) as b:
+                a.execute("CREATE TABLE generation_control (name TEXT PRIMARY KEY, "
+                          "cooldown_until REAL DEFAULT 0,probe_until REAL DEFAULT 0,probe_owner TEXT)")
+                a.commit()
+                self.assertEqual(economico.quota_gate(a, 'a', 100), 0)
+                with patch.object(economico, 'QUOTA_COOLDOWN_SECONDS', 2):
+                    economico.quota_failure(a)
+                self.assertGreater(economico.quota_gate(b, 'b', 100), 0)
+                a.execute("UPDATE generation_control SET cooldown_until=?", (0.01,))
+                a.commit()
+                self.assertEqual(economico.quota_gate(a, 'a', 100), 0)
+                self.assertGreater(economico.quota_gate(b, 'b', 100), 0)
+                economico.quota_success(a, 'a')
+                self.assertEqual(economico.quota_gate(b, 'b', 100), 0)
+
     def test_concurrent_claims_never_overlap(self):
         with tempfile.TemporaryDirectory() as folder:
             work = Path(folder)

@@ -166,6 +166,8 @@ O bloqueio partilhado permite vários geradores e garante que a recuperação de
 
 **Atenção:** dois trabalhadores não garantem o dobro da velocidade; podem partilhar limites de quota e recursos do Codex. Verifica o progresso em `python distill.py status`, os ficheiros de log em `dados/logs/` e os erros antes de aumentar o número de trabalhadores.
 
+**Pausa automática por plafond:** quando o Codex devolve um erro explícito de quota/limite de utilização, o gerador regista uma pausa de 30 minutos partilhada no SQLite. Os trabalhadores aguardam sem consumir chamadas; terminado o prazo, só um testa primeiro a disponibilidade. Se a chamada resultar, liberta os restantes; se a quota continuar esgotada, reinicia a pausa. Este processo exige computador e terminais ligados. As chamadas que falharam ficam em `error` para verificação dos ficheiros `dados/raw/`: **não são reenviadas automaticamente**, pois a ausência de resposta não prova que não houve consumo de quota. Erros de validação, autenticação e infraestrutura continuam a seguir as respetivas proteções e podem parar o script.
+
 Se deixares o PC sem vigilância, **desativa a suspensão automática** e mantém o computador ligado à corrente. Deixar o programa aberto não garante que o Codex mantenha quota ou autenticação durante toda a noite; quando estes falharem o script interrompe, preservando o trabalho.
 
 Para interromper conscientemente, usa **Ctrl+C** na janela que executa o script. Nunca apagues `dados/queue.sqlite` nem os ficheiros `dados/raw`.

@@ -16,11 +16,67 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 
 import distill
 
 ROOT = Path(__file__).resolve().parent
 BATCH_SCHEMA = ROOT / "response.batch.schema.json"
+QUOTA_COOLDOWN_SECONDS = 30 * 60
+QUOTA_PATTERNS = ("usage limit", "usage cap", "quota exceeded", "quota has been exceeded",
+                  "rate limit exceeded", "rate_limit_exceeded", "too many requests",
+                  "usage_limit_reached", "you've hit your limit", "you have hit your limit")
+
+
+def is_quota_error(events_path, stderr_path):
+    """Identifica apenas erros explicitos de plafond/quota, nao JSON invalido."""
+    text = ""
+    for path in (events_path, stderr_path):
+        if path.is_file():
+            text += path.read_text(encoding="utf-8", errors="replace")[-100000:].casefold()
+    return any(pattern in text for pattern in QUOTA_PATTERNS)
+
+
+def quota_gate(db, worker, probe_ttl):
+    """Autoriza trabalho normal ou um unico teste apos o fim da pausa."""
+    now = time.time()
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        db.execute("INSERT OR IGNORE INTO generation_control(name) VALUES('quota')")
+        row = db.execute("SELECT cooldown_until,probe_until,probe_owner "
+                         "FROM generation_control WHERE name='quota'").fetchone()
+        cooldown, probe_until, owner = row
+        if cooldown > now:
+            wait = cooldown - now
+        elif owner and probe_until > now and owner != worker:
+            wait = probe_until - now
+        elif cooldown > 0:
+            db.execute("UPDATE generation_control SET probe_owner=?,probe_until=? "
+                       "WHERE name='quota'", (worker, now + probe_ttl))
+            wait = 0
+        else:
+            wait = 0
+        db.commit()
+        return wait
+    except BaseException:
+        db.rollback()
+        raise
+
+
+def quota_failure(db):
+    """Todos os trabalhadores respeitam a mesma pausa de 30 minutos."""
+    with db:
+        db.execute("UPDATE generation_control SET cooldown_until=?,"
+                   "probe_owner=NULL,probe_until=0 WHERE name='quota'",
+                   (time.time() + QUOTA_COOLDOWN_SECONDS,))
+
+
+def quota_success(db, worker):
+    """Desbloqueia os restantes trabalhadores apos uma chamada bem sucedida."""
+    with db:
+        db.execute("UPDATE generation_control SET cooldown_until=0,"
+                   "probe_owner=NULL,probe_until=0 WHERE name='quota' AND probe_owner=?",
+                   (worker,))
 
 
 def batch_prompt(jobs):
@@ -311,12 +367,23 @@ def run(args, config, db, work):
         raise ValueError("Atualiza o Codex CLI: falta --output-schema.")
     raw_dir = work / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
+    with db:
+        db.execute("CREATE TABLE IF NOT EXISTS generation_control ("
+                   "name TEXT PRIMARY KEY, cooldown_until REAL NOT NULL DEFAULT 0,"
+                   "probe_until REAL NOT NULL DEFAULT 0, probe_owner TEXT)")
 
     attempted = completed = calls = 0
     failed = conversations = token_total = 0
     consecutive_failures = 0
     stop_reason = "limite de pedidos"
+    worker = uuid.uuid4().hex
+    probe_ttl = (args.timeout or config["timeout_seconds"]) + 120
     while attempted < args.limit:
+        wait = quota_gate(db, worker, probe_ttl)
+        if wait > 0:
+            print(f"Plafond em pausa partilhada: aguardar {int(wait) + 1}s.", flush=True)
+            time.sleep(min(wait, 60))
+            continue
         group, prefix, manifest = claim_jobs(
             db, raw_dir, args.limit - attempted, args.batch_size,
             config["max_attempts"], args.model, args.reasoning_effort)
@@ -341,8 +408,16 @@ def run(args, config, db, work):
                         cmd, input=prompt, text=True, stdout=log, stderr=err,
                         cwd=folder, timeout=args.timeout or config["timeout_seconds"],
                     )
-                if result.returncode:
-                    raise ValueError(f"Codex saiu com codigo {result.returncode}")
+                if result.returncode or not output.is_file():
+                    if is_quota_error(Path(str(prefix) + ".events.jsonl"),
+                                      Path(str(prefix) + ".stderr.txt")):
+                        mark_failed(db, group, "Limite de utilizacao Codex; resposta em raw a verificar antes de retry")
+                        quota_failure(db)
+                        print("Plafond Codex atingido: pausa partilhada de 30 minutos. "
+                              "Este lote fica em error para revisao; nao sera reenviado automaticamente.",
+                              flush=True)
+                        continue
+                    raise ValueError(f"Codex saiu com codigo {result.returncode} ou sem resposta")
                 # Guardar ANTES de validar ou atualizar a fila.
                 text = output.read_text(encoding="utf-8")
                 Path(str(prefix) + ".response.json").write_text(text, encoding="utf-8")
@@ -350,6 +425,7 @@ def run(args, config, db, work):
             metrics = usage_from_events(Path(str(prefix) + ".events.jsonl"))
             elapsed = time.monotonic() - started
             counts = save_batch(db, group, items, args.model, metrics, elapsed)
+            quota_success(db, worker)
             calls += 1
             completed += counts["completed_jobs"]
             failed += len(counts["failed_jobs"])
