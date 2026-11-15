@@ -273,12 +273,12 @@ def recover(db, raw_dir):
     print("Recuperacao concluida; nenhum pedido foi reenviado automaticamente.", flush=True)
 
 
-def selected_jobs(db, limit, batch_size, max_attempts):
+def selected_jobs(db, limit, batch_size, max_attempts, retry_only=False):
     """Escolhe pendentes sob transacao de escrita aberta pelo chamador."""
     rows = db.execute(
-        "SELECT * FROM jobs WHERE status='pending' AND attempts<? "
+        "SELECT * FROM jobs WHERE status=? AND attempts<? "
         "ORDER BY recipe_id,created,id LIMIT ?",
-        (max_attempts, limit),
+        ("retry_pending" if retry_only else "pending", max_attempts, limit),
     ).fetchall()
     if not rows:
         return []
@@ -288,7 +288,7 @@ def selected_jobs(db, limit, batch_size, max_attempts):
     return group[:batch_size]
 
 
-def claim_jobs(db, raw_dir, limit, batch_size, max_attempts, model, effort):
+def claim_jobs(db, raw_dir, limit, batch_size, max_attempts, model, effort, retry_only=False):
     """Reserva lote e cria manifesto atomicamente face a outros trabalhadores.
 
     BEGIN IMMEDIATE serializa selecao e reserva; o trabalho de IA decorre
@@ -296,7 +296,7 @@ def claim_jobs(db, raw_dir, limit, batch_size, max_attempts, model, effort):
     """
     db.execute("BEGIN IMMEDIATE")
     try:
-        group = selected_jobs(db, limit, batch_size, max_attempts)
+        group = selected_jobs(db, limit, batch_size, max_attempts, retry_only)
         if not group:
             db.commit()
             return [], None, None
@@ -309,8 +309,8 @@ def claim_jobs(db, raw_dir, limit, batch_size, max_attempts, model, effort):
         for job in group:
             result = db.execute(
                 "UPDATE jobs SET status='running',attempts=attempts+1,"
-                "provider='codex-economico',updated=? WHERE id=? AND status='pending'",
-                (distill.now(), job["id"]),
+                "provider='codex-economico',updated=? WHERE id=? AND status=?",
+                (distill.now(), job["id"], "retry_pending" if retry_only else "pending"),
             )
             if result.rowcount != 1:
                 raise RuntimeError("Reserva concorrente inesperada: " + job["id"])
@@ -386,7 +386,7 @@ def run(args, config, db, work):
             continue
         group, prefix, manifest = claim_jobs(
             db, raw_dir, args.limit - attempted, args.batch_size,
-            config["max_attempts"], args.model, args.reasoning_effort)
+            config["max_attempts"], args.model, args.reasoning_effort, args.retry_only)
         if not group:
             stop_reason = "sem pedidos pendentes elegiveis"
             break
@@ -472,6 +472,7 @@ def main(argv=None):
     parser.add_argument("--work", default=str(ROOT / "dados"))
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--retry-only", action="store_true", help="Processar apenas pedidos de recuperacao (retry_pending).")
     parser.add_argument("--max-consecutive-failures", type=int, default=3,
                         help="Parar apos N lotes consecutivos com erros (default: 3).")
     parser.add_argument("--model", default="gpt-6-luna")
