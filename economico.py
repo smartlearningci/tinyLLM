@@ -386,7 +386,7 @@ def run(args, config, db, work):
             continue
         group, prefix, manifest = claim_jobs(
             db, raw_dir, args.limit - attempted, args.batch_size,
-            config["max_attempts"], args.model, args.reasoning_effort, args.retry_only)
+            config["max_attempts"], args.model, args.reasoning_effort, getattr(args, 'retry_only', False))
         if not group:
             stop_reason = "sem pedidos pendentes elegiveis"
             break
