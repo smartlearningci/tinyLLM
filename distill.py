@@ -58,8 +58,11 @@ def normalize(text):
 # Abre a fila SQLite e cria apenas tabelas em falta. Mantém os IDs e estados antigos.
 def open_db(work):
     work.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(work / 'queue.sqlite')
+    # Varios trabalhadores podem terminar chamadas de IA em simultaneo.
+    # Esperar por um escritor temporario antes de declarar um erro.
+    db = sqlite3.connect(work / 'queue.sqlite', timeout=30)
     db.row_factory = sqlite3.Row
+    db.execute('PRAGMA busy_timeout=30000')
     db.executescript('''
     PRAGMA journal_mode=WAL;
     CREATE TABLE IF NOT EXISTS recipes(
