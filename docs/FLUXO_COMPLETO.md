@@ -158,7 +158,15 @@ bash producao_continua.sh
 
 O script liga automaticamente vários blocos de **até 200 pedidos** em `low`, lotes de **2**, até deixar de haver pendentes elegíveis. Guarda um log em `dados/logs/producao-AAAAmmdd-HHMMSS.log`. **Pára sem reiniciar** se houver três tipos de situação: falha de execução/infraestrutura, **5 lotes consecutivos com erros** ou ausência de pedidos pendentes. Um erro isolado não obriga à paragem. Não tenta automaticamente os `error` nem os `manual`; esses são tratados no passo seguinte.
 
-Se deixares o PC sem vigilância, **desativa a suspensão automática**, mantém o computador ligado à corrente e não inicies outros geradores. Para acompanhar noutra janela, usa `python distill.py status`. Deixar o programa aberto não garante que o Codex mantenha quota ou autenticação durante toda a noite; quando estes falharem o script interrompe, preservando o trabalho.
+### Gerar em paralelo (2 trabalhadores, 2 pedidos por chamada)
+
+Depois de atualizar o projeto, abre **dois terminais**, ativa o mesmo ambiente virtual em cada um e executa `bash producao_continua.sh` em ambos. Para começar, usa apenas dois trabalhadores e acompanha a taxa de falhas e a quota. Cada trabalhador mantém lotes de dois; a reserva de pedidos é atómica no SQLite, pelo que não devem processar o mesmo pedido. Os logs incluem o PID no nome para não se sobreporem.
+
+O bloqueio partilhado permite vários geradores e garante que a recuperação de respostas interrompidas apenas ocorre quando nenhum outro gerador está ativo. Se um computador se desligar, reinicia primeiro um único trabalhador para recuperar as execuções incompletas; depois podes abrir os restantes. Não corras comandos de importação, planeamento ou retry em paralelo com a geração.
+
+**Atenção:** dois trabalhadores não garantem o dobro da velocidade; podem partilhar limites de quota e recursos do Codex. Verifica o progresso em `python distill.py status`, os ficheiros de log em `dados/logs/` e os erros antes de aumentar o número de trabalhadores.
+
+Se deixares o PC sem vigilância, **desativa a suspensão automática** e mantém o computador ligado à corrente. Deixar o programa aberto não garante que o Codex mantenha quota ou autenticação durante toda a noite; quando estes falharem o script interrompe, preservando o trabalho.
 
 Para interromper conscientemente, usa **Ctrl+C** na janela que executa o script. Nunca apagues `dados/queue.sqlite` nem os ficheiros `dados/raw`.
 

@@ -11,6 +11,24 @@ from unittest.mock import patch
 import economico
 
 class EconomicTests(unittest.TestCase):
+    def test_concurrent_claims_never_overlap(self):
+        with tempfile.TemporaryDirectory() as folder:
+            work = Path(folder)
+            with contextlib.closing(economico.distill.open_db(work)) as seed:
+                for i in range(6):
+                    seed.execute("INSERT INTO jobs(id,recipe_id,persona,status,attempts,request,prompt,created) "
+                                 "VALUES(?,?,'P1','pending',0,'{}','Instructions',?)",
+                                 (str(i),str(i),str(i)))
+                seed.commit()
+            with contextlib.closing(economico.distill.open_db(work)) as first, \
+                 contextlib.closing(economico.distill.open_db(work)) as second:
+                a, _, _ = economico.claim_jobs(first, work, 6, 2, 3, "test", "low")
+                b, _, _ = economico.claim_jobs(second, work, 6, 2, 3, "test", "low")
+                self.assertEqual(len(a), 2)
+                self.assertEqual(len(b), 2)
+                self.assertFalse({j['id'] for j in a} & {j['id'] for j in b})
+                self.assertEqual(first.execute("SELECT count(*) FROM jobs WHERE status='running'").fetchone()[0], 4)
+
     def job(self, jid, template="Instructions"):
         req = {"job_id": jid, "recipe": {"source_id":"r", "text":"recipe"}, "tasks":[]}
         return {"id":jid,"request":json.dumps(req),"prompt":template+"\nREQUEST\n"+json.dumps(req)}

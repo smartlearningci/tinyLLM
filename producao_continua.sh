@@ -4,7 +4,7 @@
 set -u
 cd "$(dirname "$0")" || exit 1
 mkdir -p dados/logs
-LOG="dados/logs/producao-$(date +%Y%m%d-%H%M%S).log"
+LOG="dados/logs/producao-$(date +%Y%m%d-%H%M%S)-$$.log"
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 echo "Registo da sessao: $LOG" | tee -a "$LOG"

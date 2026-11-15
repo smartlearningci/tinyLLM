@@ -218,7 +218,7 @@ def recover(db, raw_dir):
 
 
 def selected_jobs(db, limit, batch_size, max_attempts):
-    """Escolhe pendentes; prioriza receitas comuns para reduzir repeticoes."""
+    """Escolhe pendentes sob transacao de escrita aberta pelo chamador."""
     rows = db.execute(
         "SELECT * FROM jobs WHERE status='pending' AND attempts<? "
         "ORDER BY recipe_id,created,id LIMIT ?",
@@ -230,6 +230,39 @@ def selected_jobs(db, limit, batch_size, max_attempts):
     template = first["prompt"].split("\nREQUEST\n", 1)[0]
     group = [r for r in rows if r["prompt"].split("\nREQUEST\n", 1)[0] == template]
     return group[:batch_size]
+
+
+def claim_jobs(db, raw_dir, limit, batch_size, max_attempts, model, effort):
+    """Reserva lote e cria manifesto atomicamente face a outros trabalhadores.
+
+    BEGIN IMMEDIATE serializa selecao e reserva; o trabalho de IA decorre
+    fora desta transacao. Um crash deixa running para recuperacao conservadora.
+    """
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        group = selected_jobs(db, limit, batch_size, max_attempts)
+        if not group:
+            db.commit()
+            return [], None, None
+        ids = [j["id"] for j in group]
+        stem = "eco-" + hashlib.sha256((distill.dumps(ids) + str(time.time_ns())).encode()).hexdigest()[:20]
+        prefix = raw_dir / stem
+        manifest = {"job_ids": ids, "attempts": {j["id"]: j["attempts"] + 1 for j in group},
+                    "model": model, "created": distill.now(), "reasoning_effort": effort}
+        distill.write_json(str(prefix) + ".manifest.json", manifest)
+        for job in group:
+            result = db.execute(
+                "UPDATE jobs SET status='running',attempts=attempts+1,"
+                "provider='codex-economico',updated=? WHERE id=? AND status='pending'",
+                (distill.now(), job["id"]),
+            )
+            if result.rowcount != 1:
+                raise RuntimeError("Reserva concorrente inesperada: " + job["id"])
+        db.commit()
+        return group, prefix, manifest
+    except BaseException:
+        db.rollback()
+        raise
 
 
 def codex_command(executable, model, reasoning_effort, output, ephemeral=False):
@@ -278,33 +311,20 @@ def run(args, config, db, work):
         raise ValueError("Atualiza o Codex CLI: falta --output-schema.")
     raw_dir = work / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
-    recover(db, raw_dir)
 
     attempted = completed = calls = 0
     failed = conversations = token_total = 0
     consecutive_failures = 0
     stop_reason = "limite de pedidos"
     while attempted < args.limit:
-        group = selected_jobs(db, args.limit - attempted, args.batch_size,
-                              config["max_attempts"])
+        group, prefix, manifest = claim_jobs(
+            db, raw_dir, args.limit - attempted, args.batch_size,
+            config["max_attempts"], args.model, args.reasoning_effort)
         if not group:
             stop_reason = "sem pedidos pendentes elegiveis"
             break
         prompt = batch_prompt(group)
-        ids = [j["id"] for j in group]
-        stem = "eco-" + hashlib.sha256((distill.dumps(ids) + str(time.time_ns())).encode()).hexdigest()[:20]
-        prefix = raw_dir / stem
-        # Manifesto antes de cobrar qualquer chamada: permite recuperacao apos crash.
-        manifest = {"job_ids": ids, "attempts": {j["id"]: j["attempts"] + 1 for j in group}, "model": args.model,
-                    "created": distill.now(), "reasoning_effort": args.reasoning_effort}
-        distill.write_json(str(prefix) + ".manifest.json", manifest)
-        with db:
-            for job in group:
-                db.execute(
-                    "UPDATE jobs SET status='running',attempts=attempts+1,"
-                    "provider='codex-economico',updated=? WHERE id=?",
-                    (distill.now(), job["id"]),
-                )
+        stem = prefix.name
         attempted += len(group)
         started = time.monotonic()
         try:
@@ -393,12 +413,21 @@ def main(argv=None):
     work = Path(args.work).expanduser().resolve()
     work.mkdir(parents=True, exist_ok=True)
     config = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
-    with (work / "queue.lock").open("w") as lock:
+    with (work / "queue.lock").open("a+") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise ValueError("Outra operacao usa a fila. Nao iniciar em paralelo.")
+            # Outros economico.py usam LOCK_SH durante a geracao.
+            fcntl.flock(lock, fcntl.LOCK_SH)
+            should_recover = False
+        else:
+            should_recover = True
         with contextlib.closing(distill.open_db(work)) as db:
+            if should_recover:
+                raw_dir = work / "raw"
+                raw_dir.mkdir(parents=True, exist_ok=True)
+                recover(db, raw_dir)
+                fcntl.flock(lock, fcntl.LOCK_SH)
             run(args, config, db, work)
 
 
