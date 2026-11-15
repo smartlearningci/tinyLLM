@@ -11,6 +11,32 @@ from unittest.mock import patch
 import economico
 
 class EconomicTests(unittest.TestCase):
+    def test_sqlite_busy_retries_storage_without_new_model_call(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with contextlib.closing(economico.distill.open_db(Path(folder))) as db:
+                db.execute("INSERT INTO jobs(id,status) VALUES('x','running')")
+                db.commit()
+                job = db.execute("SELECT * FROM jobs WHERE id='x'").fetchone()
+                with patch.object(economico.distill, 'store_response', side_effect=[
+                    sqlite3.OperationalError('database is locked'), {'added': 6}]) as store, \
+                     patch.object(economico.time, 'sleep') as pause:
+                    result = economico.store_with_lock_retry(db, job, {'job_id': 'x'}, 'test', None)
+                self.assertEqual(result['added'], 6)
+                self.assertEqual(store.call_count, 2)
+                pause.assert_called_once_with(1)
+
+    def test_retry_worker_only_claims_recovery_queue(self):
+        with tempfile.TemporaryDirectory() as folder:
+            work = Path(folder)
+            with contextlib.closing(economico.distill.open_db(work)) as db:
+                for jid, status in [('normal', 'pending'), ('retry', 'retry_pending')]:
+                    db.execute("INSERT INTO jobs(id,recipe_id,persona,status,attempts,request,prompt,created) "
+                               "VALUES(?,?,'P1',?,1,'{}','Instructions',?)", (jid,jid,status,jid))
+                db.commit()
+                claimed, _, _ = economico.claim_jobs(db, work, 1, 1, 3, 'test', 'low', True)
+                self.assertEqual([row['id'] for row in claimed], ['retry'])
+                self.assertEqual(db.execute("SELECT status FROM jobs WHERE id='normal'").fetchone()[0], 'pending')
+
     def test_quota_detection_requires_explicit_error(self):
         with tempfile.TemporaryDirectory() as folder:
             events = Path(folder) / "events.jsonl"
