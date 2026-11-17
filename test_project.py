@@ -1,8 +1,10 @@
 """Verificações offline: leitura web, revisão, origem e exclusão de validação."""
 import contextlib
+import fcntl
 import io
 import json
 from pathlib import Path
+import sqlite3
 import tempfile
 import threading
 import unittest
@@ -17,6 +19,24 @@ import test_distill
 
 
 class ProjectTest(unittest.TestCase):
+    def test_training_export_while_worker_holds_shared_lock(self):
+        fixture=test_distill.PipelineTest();fixture.setUp()
+        try:
+            distill.store_response(fixture.db,fixture.job,fixture.response(),'test','fixture')
+            root=fixture.work/'project';data=root/'dados';data.mkdir(parents=True)
+            with sqlite3.connect(data/'queue.sqlite') as target:
+                fixture.db.backup(target)
+            validation=data/'validation_v01.jsonl'
+            validation.write_text(json.dumps({'recipe_id':'reserved','context':{'chunks':[{'text':'Different validation recipe'}]}})+'\n')
+            with (data/'queue.lock').open('a') as worker_lock:
+                fcntl.flock(worker_lock,fcntl.LOCK_SH)
+                with patch.object(preparar,'ROOT',root),contextlib.redirect_stdout(io.StringIO()):
+                    preparar.treino(validation,'culinario_v04')
+            report=json.loads((data/'exports'/'culinario_v04'/'dataset_report.json').read_text())
+            self.assertEqual(report['train_examples'],6)
+            self.assertEqual(report['validation_examples'],1)
+        finally: fixture.tearDown()
+
     def test_monitor_read_review_and_origin(self):
         fixture=test_distill.PipelineTest();fixture.setUp()
         try:
