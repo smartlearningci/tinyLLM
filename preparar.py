@@ -75,13 +75,20 @@ def treino(validation, nome):
     reserved=set().union(*(grupo(r) for r in val))
     work=ROOT/'dados'
     if not (work/'queue.sqlite').is_file(): raise ValueError('Importe a fila antes de preparar treino.')
-    with (work/'queue.lock').open('a') as lock:
-        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        with tempfile.TemporaryDirectory() as tmp:
-            with contextlib.closing(sqlite3.connect((work/'queue.sqlite').as_uri()+'?mode=ro',uri=True)) as db:
-                db.row_factory=sqlite3.Row
+    # Os trabalhadores economico.py mantêm LOCK_SH durante a produção. Uma
+    # leitura SQLite em WAL não precisa do LOCK_EX reservado à migração/escrita.
+    # BEGIN fixa a fotografia quando o primeiro SELECT é executado; pedidos
+    # terminados depois disso entrarão apenas na próxima versão do dataset.
+    with tempfile.TemporaryDirectory() as tmp:
+        with contextlib.closing(sqlite3.connect((work/'queue.sqlite').as_uri()+'?mode=ro',
+                                               uri=True,timeout=30)) as db:
+            db.row_factory=sqlite3.Row
+            db.execute('BEGIN')
+            try:
                 distill.export_data(db,argparse.Namespace(out=tmp,reviewed_only=False))
-            rows=list(distill.read_jsonl(Path(tmp)/'candidates.jsonl'))
+            finally:
+                db.rollback()
+        rows=list(distill.read_jsonl(Path(tmp)/'candidates.jsonl'))
     # Fecho transitivo: uma receita ligada a uma reservada também fica reservada.
     changed=True
     while changed:
