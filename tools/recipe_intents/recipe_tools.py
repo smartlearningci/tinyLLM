@@ -1,4 +1,4 @@
-"""First TinySLM tool: source-grounded ingredient lookup for the active recipe.
+"""TinySLM tools: source-grounded ingredient list and quantity lookup.
 
 No network access, no TinySLM call, and no changes to the SQLite database.
 Every ingredient keeps its original source fragment for auditability.
@@ -79,8 +79,69 @@ def get_recipe_ingredients(database, recipe_id):
     }
 
 
+def _words(text):
+    """Tokenize English ingredient names without relying on a language model."""
+    return re.findall(r"[a-z0-9]+", text.casefold())
+
+
+def _contains_phrase(haystack, needle):
+    """Match full word sequences, not arbitrary substrings (oil != boil)."""
+    words = _words(haystack)
+    target = _words(needle)
+    return bool(target) and any(words[i:i + len(target)] == target
+                                for i in range(len(words) - len(target) + 1))
+
+
+def get_ingredient_quantity(database, recipe_id, ingredient_name):
+    """Read a quantity only when the requested source ingredient is unambiguous."""
+    result = get_recipe_ingredients(database, recipe_id)
+    if result["status"] != "ok":
+        return result
+    if not ingredient_name or not _words(ingredient_name):
+        return {"status": "ingredient_unspecified", "recipe_id": recipe_id,
+                "message": "Which ingredient do you mean?"}
+
+    matches = [entry for entry in result["ingredients"]
+               if _contains_phrase(entry["name"], ingredient_name)]
+    if not matches:
+        return {"status": "ingredient_not_found", "recipe_id": recipe_id,
+                "title": result["title"], "ingredient_requested": ingredient_name,
+                "message": "The requested ingredient was not found in this recipe."}
+    if len(matches) > 1:
+        return {"status": "ambiguous_ingredient", "recipe_id": recipe_id,
+                "title": result["title"], "ingredient_requested": ingredient_name,
+                "candidates": [entry["raw"] for entry in matches],
+                "message": "More than one ingredient matches. Please be more specific."}
+
+    entry = matches[0]
+    if entry["quantity"] is None:
+        return {"status": "quantity_not_specified", "recipe_id": recipe_id,
+                "title": result["title"], "ingredient": entry,
+                "message": "The recipe does not specify a numeric quantity for this ingredient."}
+    return {"status": "ok", "recipe_id": recipe_id, "title": result["title"],
+            "ingredient_requested": ingredient_name, "ingredient": entry,
+            "source_status": "original_fragment_preserved",
+            "parse_warning": "Quantity and unit extraction is heuristic; verify against ingredient.raw."}
+
+
+def _quantity_ingredient_from_question(question, entries):
+    """Choose only an ingredient phrase literally present in the question.
+
+    A generic question like 'How much do I need?' must request clarification.
+    Multiple matches are deliberately left ambiguous.
+    """
+    candidates = []
+    for entry in entries:
+        tokens = _words(entry["name"])
+        # Accept an exact ingredient phrase or one of its substantive words.
+        matches = [" ".join(tokens)] + [token for token in tokens if len(token) >= 4]
+        if any(_contains_phrase(question, phrase) for phrase in matches):
+            candidates.append(entry["name"])
+    return candidates
+
+
 def handle_question(database, recipe_id, question, model_path):
-    """Classify natural-language intent; only ingredients are supported in MVP 1."""
+    """Classify natural-language intent; route ingredients and quantities only."""
     try:
         import joblib
     except ImportError as exc:
@@ -94,10 +155,23 @@ def handle_question(database, recipe_id, question, model_path):
         return {"status": "clarify", "intent": str(intent),
                 "confidence": round(confidence, 3),
                 "message": "Please clarify what you would like to know about this recipe."}
+    if intent == "quantity":
+        source = get_recipe_ingredients(database, recipe_id)
+        if source["status"] != "ok":
+            return source
+        candidates = _quantity_ingredient_from_question(question, source["ingredients"])
+        if len(candidates) != 1:
+            return {"status": "clarify_ingredient", "intent": "quantity",
+                    "confidence": round(confidence, 3),
+                    "candidates": candidates,
+                    "message": "Which specific ingredient are you asking about?"}
+        result = get_ingredient_quantity(database, recipe_id, candidates[0])
+        result.update({"intent": "quantity", "confidence": round(confidence, 3)})
+        return result
     if intent != "ingredients":
         return {"status": "not_implemented", "intent": str(intent),
                 "confidence": round(confidence, 3),
-                "message": "This request type is not implemented in MVP 1."}
+                "message": "This request type is not implemented yet."}
     result = get_recipe_ingredients(database, recipe_id)
     result.update({"intent": "ingredients", "confidence": round(confidence, 3)})
     return result
@@ -109,10 +183,15 @@ def main():
     parser.add_argument("--recipe-id", required=True)
     parser.add_argument("--question", help="Natural language question; requires --model")
     parser.add_argument("--model", help="Locally retrained intent_model.joblib")
+    parser.add_argument("--ingredient", help="Look up an explicit ingredient quantity (without classifier)")
     args = parser.parse_args()
+    if args.ingredient and (args.question or args.model):
+        parser.error("Use --ingredient alone, without --question or --model.")
     if bool(args.question) != bool(args.model):
         parser.error("Use --question and --model together, or neither.")
-    if args.question:
+    if args.ingredient:
+        result = get_ingredient_quantity(args.database, args.recipe_id, args.ingredient)
+    elif args.question:
         result = handle_question(args.database, args.recipe_id, args.question, args.model)
     else:
         result = get_recipe_ingredients(args.database, args.recipe_id)
