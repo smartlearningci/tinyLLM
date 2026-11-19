@@ -1,7 +1,8 @@
-# TinySLM — Recipe tools, MVP ingredients + quantities + steps (English)
+# TinySLM — Recipe tools, first MVP (English)
 
-This directory contains three external tools: retrieve ingredients, look up
-quantities and consult the preparation steps of the recipe currently open.
+This directory contains four external tools: retrieve ingredients, look up
+quantities, consult preparation steps and check explicit ingredient listings
+for the recipe currently open.
 The application supplies `recipe_id`;
 there is no attempt to guess a recipe title from the user's question.
 
@@ -47,7 +48,7 @@ entry: **do not present parsed quantities as independently verified facts**.
 python recipe_tools.py --database recipes.sqlite --model local_model/intent_model.joblib --recipe-id "recipe_nlg_lite:8a4002df3b72ad39013b9146ff023f10" --question "What ingredients do I need?"
 ```
 
-`ingredients`, `quantity` and `steps` are routed. Other intents return
+`ingredients`, `quantity`, `steps` and `constraints` are routed. `unknown` returns
 `not_implemented`; uncertain classifications return `clarify`. Unknown recipe
 IDs return `recipe_not_found`. The system does **not** call TinySLM yet.
 
@@ -102,7 +103,32 @@ as the authoritative source. Complex questions such as "When should I add
 garlic?" receive the full method for subsequent reasoning, not an invented
 single-step answer. The TinySLM response integration is still pending.
 
-## 6. Run automated tests
+## 6. Check an ingredient restriction
+
+This tool checks only whether an ingredient name is **explicitly listed** in
+the recipe. It never certifies safety for allergies, hidden ingredients, cross-
+contact or substitutions. A result of `not_listed` **does not mean absent**.
+
+```bash
+python recipe_tools.py --database recipes.sqlite --recipe-id "recipe_nlg_lite:8a4002df3b72ad39013b9146ff023f10" --check-ingredient "soy sauce"
+```
+
+The source lists soy sauce, so this returns `listed` and the exact source
+fragment. For `--check-ingredient "milk"`, it returns `not_listed`, with
+`safe_for_allergy: null` and an explicit warning.
+
+The natural-language classification can also trigger the tool:
+
+```bash
+python recipe_tools.py --database recipes.sqlite --model local_model/intent_model.joblib --recipe-id "recipe_nlg_lite:8a4002df3b72ad39013b9146ff023f10" --question "Can I make this without milk?"
+```
+
+The current classifier is deliberately conservative. An otherwise clear
+question such as "Does this recipe contain soy sauce?" may receive `clarify`
+if confidence is below 0.65. This is a classifier limitation to audit, not
+a reason to invent a yes/no answer or lower the safety threshold blindly.
+
+## 7. Run automated tests
 
 From the repository root:
 
@@ -113,6 +139,7 @@ python -m unittest discover -s tools/recipe_intents -v
 ## Next implementation steps
 
 1. Review segmentation edge cases and maintain the original source for audit.
-2. Add the deterministic constraint tool and improve step segmentation after audit.
+2. Audit the extraction of ingredients and steps and evaluate constraints on
+   unseen questions before connecting these tools to TinySLM.
 3. Integrate with the app's active `recipe_id` and then with TinySLM.
 4. Evaluate complete answers against real recipes and unseen English questions.
