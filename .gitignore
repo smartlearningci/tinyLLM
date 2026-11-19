@@ -10,3 +10,10 @@ __pycache__/
 *.pt
 *.bin
 *.gguf
+
+# Locally generated recipe database, trained models and datasets.
+/tools/recipe_intents/*.sqlite
+/tools/recipe_intents/*.sqlite-*
+/tools/recipe_intents/*.joblib
+/tools/recipe_intents/*.jsonl
+/tools/recipe_intents/local_model/
