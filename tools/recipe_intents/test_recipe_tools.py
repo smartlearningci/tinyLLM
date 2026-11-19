@@ -6,7 +6,8 @@ import unittest
 from pathlib import Path
 
 from recipe_tools import (get_recipe_ingredients, get_ingredient_quantity,
-                          _quantity_ingredient_from_question, parse_ingredient)
+                          get_recipe_steps, _quantity_ingredient_from_question,
+                          parse_ingredient)
 
 
 class IngredientToolTests(unittest.TestCase):
@@ -15,13 +16,15 @@ class IngredientToolTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.db = Path(self.tmp.name) / "recipes.sqlite"
         with sqlite3.connect(self.db) as connection:
-            connection.execute("CREATE TABLE recipes (recipe_id TEXT PRIMARY KEY, title TEXT, ingredients_raw TEXT)")
-            connection.execute("INSERT INTO recipes VALUES (?, ?, ?)", (
+            connection.execute("CREATE TABLE recipes (recipe_id TEXT PRIMARY KEY, title TEXT, ingredients_raw TEXT, method_raw TEXT)")
+            connection.execute("INSERT INTO recipes VALUES (?, ?, ?, ?)", (
                 "recipe:1", "braised lamb shanks",
                 "4.0 lamb, 1.0 tablespoon olive oil, 0.5 teaspoon paprika, 2.0 pound sweet potatoes",
+                "1. heat olive oil in a skillet . brown lamb . add garlic . simmer covered for one hour.",
             ))
-            connection.execute("INSERT INTO recipes VALUES (?, ?, ?)", (
+            connection.execute("INSERT INTO recipes VALUES (?, ?, ?, ?)", (
                 "recipe:2", "butter biscuits", "2 tablespoon salted butter, 1 tablespoon unsalted butter, salt to taste",
+                "mix butter . add flour . mix butter again . bake until golden.",
             ))
 
     def test_source_preserved_and_quantities_parsed(self):
@@ -73,6 +76,32 @@ class IngredientToolTests(unittest.TestCase):
         entries = get_recipe_ingredients(self.db, "recipe:1")["ingredients"]
         self.assertEqual(_quantity_ingredient_from_question("How much paprika should I use?", entries), ["paprika"])
         self.assertEqual(_quantity_ingredient_from_question("How much should I use?", entries), [])
+
+    def test_steps_retain_original_source(self):
+        result = get_recipe_steps(self.db, "recipe:1")
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(len(result["steps"]), 4)
+        self.assertTrue(result["method_raw"].startswith("1. heat olive oil"))
+        self.assertEqual(result["steps"][0]["raw"], "heat olive oil in a skillet")
+
+    def test_first_and_next_step(self):
+        first = get_recipe_steps(self.db, "recipe:1", step_number=1)
+        following = get_recipe_steps(self.db, "recipe:1", current_step=1)
+        self.assertEqual(first["selected_step"]["position"], 1)
+        self.assertEqual(following["selected_step"]["raw"], "brown lamb")
+
+    def test_end_of_method_not_invented(self):
+        result = get_recipe_steps(self.db, "recipe:1", current_step=4)
+        self.assertEqual(result["status"], "no_next_step")
+
+    def test_after_step_exact_phrase(self):
+        result = get_recipe_steps(self.db, "recipe:1", after_text="brown lamb")
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["selected_step"]["raw"], "add garlic")
+
+    def test_ambiguous_action_is_not_guessed(self):
+        result = get_recipe_steps(self.db, "recipe:2", after_text="mix butter")
+        self.assertEqual(result["status"], "ambiguous_step")
 
 
 if __name__ == "__main__":
