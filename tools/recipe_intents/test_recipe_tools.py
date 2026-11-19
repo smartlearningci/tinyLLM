@@ -6,7 +6,9 @@ import unittest
 from pathlib import Path
 
 from recipe_tools import (get_recipe_ingredients, get_ingredient_quantity,
-                          get_recipe_steps, _quantity_ingredient_from_question,
+                          get_recipe_steps, check_recipe_constraint,
+                          _constraint_ingredient_from_question,
+                          _quantity_ingredient_from_question,
                           parse_ingredient)
 
 
@@ -102,6 +104,29 @@ class IngredientToolTests(unittest.TestCase):
     def test_ambiguous_action_is_not_guessed(self):
         result = get_recipe_steps(self.db, "recipe:2", after_text="mix butter")
         self.assertEqual(result["status"], "ambiguous_step")
+
+    def test_constraint_present_is_grounded(self):
+        result = check_recipe_constraint(self.db, "recipe:2", "butter")
+        self.assertEqual(result["status"], "listed")
+        self.assertEqual(len(result["matching_source_entries"]), 2)
+        self.assertIsNone(result["safe_for_allergy"])
+
+    def test_constraint_not_listed_is_not_certified_absent(self):
+        result = check_recipe_constraint(self.db, "recipe:1", "milk")
+        self.assertEqual(result["status"], "not_listed")
+        self.assertEqual(result["matching_source_entries"], [])
+        self.assertEqual(result["source_scope"], "explicit_ingredient_list_only")
+        self.assertIsNone(result["safe_for_allergy"])
+
+    def test_constraint_uses_whole_words(self):
+        result = check_recipe_constraint(self.db, "recipe:1", "oil")
+        self.assertEqual(result["status"], "listed")
+        self.assertEqual(result["matching_source_entries"], ["1.0 tablespoon olive oil"])
+
+    def test_constraint_english_question_parsing(self):
+        self.assertEqual(_constraint_ingredient_from_question("Does this recipe contain milk?"), "milk")
+        self.assertEqual(_constraint_ingredient_from_question("Can I make this without butter?"), "butter")
+        self.assertIsNone(_constraint_ingredient_from_question("Is it allergen free?"))
 
 
 if __name__ == "__main__":
