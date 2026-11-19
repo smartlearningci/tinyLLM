@@ -186,6 +186,45 @@ def get_recipe_steps(database, recipe_id, current_step=None, step_number=None,
     return dict(base, status="ok", selected_step=steps[index])
 
 
+def check_recipe_constraint(database, recipe_id, ingredient_name):
+    """Check *explicit listing*, never certify ingredient absence or allergy safety.
+
+    The tool does not know hidden ingredients in branded sauces, cross-contact,
+    synonyms or allergens and must not make medical/dietary safety assertions.
+    """
+    result = get_recipe_ingredients(database, recipe_id)
+    if result["status"] != "ok":
+        return result
+    if not ingredient_name or not _words(ingredient_name):
+        return {"status": "ingredient_unspecified", "recipe_id": recipe_id,
+                "message": "Which ingredient or restriction should I check?"}
+    matches = [entry for entry in result["ingredients"]
+               if _contains_phrase(entry["name"], ingredient_name)]
+    status = "listed" if matches else "not_listed"
+    return {"status": status, "recipe_id": recipe_id, "title": result["title"],
+            "ingredient_requested": ingredient_name,
+            "matching_source_entries": [entry["raw"] for entry in matches],
+            "source_scope": "explicit_ingredient_list_only",
+            "safe_for_allergy": None,
+            "warning": "Not listed does not mean absent or safe. Hidden ingredients, substitutions, cross-contact and synonyms are not checked."}
+
+
+def _constraint_ingredient_from_question(question):
+    """Recognize small, explicit English question patterns; otherwise clarify."""
+    patterns = [
+        r"\b(?:contain|contains|include|includes|have|has|use|uses)\s+(?:any\s+)?(?P<name>[a-z][a-z\s-]{1,50}?)\s*\??$",
+        r"\bwithout\s+(?P<name>[a-z][a-z\s-]{1,50}?)\s*\??$",
+        r"\bno\s+(?P<name>[a-z][a-z\s-]{1,50}?)\s*\??$",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, question.casefold())
+        if match:
+            name = match.group("name").strip(" ?.-")
+            if name not in {"anything", "ingredients", "substitutions", "changes"}:
+                return name
+    return None
+
+
 def _quantity_ingredient_from_question(question, entries):
     """Choose only an ingredient phrase literally present in the question.
 
@@ -246,6 +285,15 @@ def handle_question(database, recipe_id, question, model_path, current_step=None
             result = get_recipe_steps(database, recipe_id)
         result.update({"intent": "steps", "confidence": round(confidence, 3)})
         return result
+    if intent == "constraints":
+        ingredient = _constraint_ingredient_from_question(question)
+        if ingredient is None:
+            return {"status": "clarify_ingredient", "intent": "constraints",
+                    "confidence": round(confidence, 3),
+                    "message": "Which ingredient should I check against the recipe?"}
+        result = check_recipe_constraint(database, recipe_id, ingredient)
+        result.update({"intent": "constraints", "confidence": round(confidence, 3)})
+        return result
     if intent != "ingredients":
         return {"status": "not_implemented", "intent": str(intent),
                 "confidence": round(confidence, 3),
@@ -266,19 +314,24 @@ def main():
     parser.add_argument("--step-number", type=int, help="Select a source step, without classifier")
     parser.add_argument("--after-text", help="Find the step after an exact action phrase")
     parser.add_argument("--find-text", help="Find a step containing an exact phrase")
+    parser.add_argument("--check-ingredient", help="Check if an ingredient is explicitly listed")
     args = parser.parse_args()
     step_selectors = (args.step_number, args.after_text, args.find_text)
     if sum(x is not None for x in step_selectors) > 1:
         parser.error("Use only one step selector.")
-    if args.ingredient and (args.question or args.model or any(x is not None for x in step_selectors)):
+    if args.ingredient and (args.question or args.model or any(x is not None for x in step_selectors) or args.check_ingredient):
         parser.error("Use --ingredient alone, without other selectors.")
+    if args.check_ingredient and (args.question or args.model or any(x is not None for x in step_selectors)):
+        parser.error("Use --check-ingredient alone, without other selectors.")
     if any(x is not None for x in step_selectors) and (args.question or args.model):
         parser.error("Use explicit step selectors without --question and --model.")
     if args.current_step is not None and not args.question:
         parser.error("--current-step requires --question and --model.")
     if bool(args.question) != bool(args.model):
         parser.error("Use --question and --model together, or neither.")
-    if args.ingredient:
+    if args.check_ingredient:
+        result = check_recipe_constraint(args.database, args.recipe_id, args.check_ingredient)
+    elif args.ingredient:
         result = get_ingredient_quantity(args.database, args.recipe_id, args.ingredient)
     elif args.question:
         result = handle_question(args.database, args.recipe_id, args.question, args.model,
