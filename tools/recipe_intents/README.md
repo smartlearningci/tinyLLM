@@ -1,7 +1,7 @@
-# TinySLM — Recipe tools, MVP 1 + quantity lookup (English)
+# TinySLM — Recipe tools, MVP ingredients + quantities + steps (English)
 
-This directory contains two external tools: retrieve ingredient data and
-look up an ingredient's quantity for the recipe currently open in the app.
+This directory contains three external tools: retrieve ingredients, look up
+quantities and consult the preparation steps of the recipe currently open.
 The application supplies `recipe_id`;
 there is no attempt to guess a recipe title from the user's question.
 
@@ -47,7 +47,7 @@ entry: **do not present parsed quantities as independently verified facts**.
 python recipe_tools.py --database recipes.sqlite --model local_model/intent_model.joblib --recipe-id "recipe_nlg_lite:8a4002df3b72ad39013b9146ff023f10" --question "What ingredients do I need?"
 ```
 
-`ingredients` and `quantity` are routed. Other intents return
+`ingredients`, `quantity` and `steps` are routed. Other intents return
 `not_implemented`; uncertain classifications return `clarify`. Unknown recipe
 IDs return `recipe_not_found`. The system does **not** call TinySLM yet.
 
@@ -69,7 +69,40 @@ The tool returns the quantity and source fragment (for this sample,
 returns `ingredient_not_found`; if no amount exists, `quantity_not_specified`.
 It does not infer missing numbers or choose between ambiguous ingredients.
 
-## 5. Run automated tests
+## 5. Query steps of the preparation
+
+Read the full original method and heuristic step breakdown:
+
+```bash
+python recipe_tools.py --database recipes.sqlite --recipe-id "recipe_nlg_lite:8a4002df3b72ad39013b9146ff023f10" --step-number 1
+```
+
+For the natural-language question "What should I do next?", the **interface
+must supply the current 1-based step**. Example: the user is on step 2.
+
+```bash
+python recipe_tools.py --database recipes.sqlite --model local_model/intent_model.joblib --recipe-id "recipe_nlg_lite:8a4002df3b72ad39013b9146ff023f10" --current-step 2 --question "What should I do next?"
+```
+
+The example returns position 3, "add onions to same skillet...". Without a
+current step, the natural-language next-step request returns
+`current_step_required`. At the end of the preparation it returns
+`no_next_step`.
+
+An exact source phrase can be searched without a classifier:
+
+```bash
+python recipe_tools.py --database recipes.sqlite --recipe-id "recipe_nlg_lite:8a4002df3b72ad39013b9146ff023f10" --after-text "remove lamb from skillet"
+```
+
+The method is split by the corpus's ` . ` separators, so a resulting position
+is **not guaranteed to be a single culinary action**. A phrase occurring in
+multiple steps returns `ambiguous_step`. The `method_raw` field is retained
+as the authoritative source. Complex questions such as "When should I add
+garlic?" receive the full method for subsequent reasoning, not an invented
+single-step answer. The TinySLM response integration is still pending.
+
+## 6. Run automated tests
 
 From the repository root:
 
@@ -80,6 +113,6 @@ python -m unittest discover -s tools/recipe_intents -v
 ## Next implementation steps
 
 1. Review segmentation edge cases and maintain the original source for audit.
-2. Add deterministic step and constraint tools.
+2. Add the deterministic constraint tool and improve step segmentation after audit.
 3. Integrate with the app's active `recipe_id` and then with TinySLM.
 4. Evaluate complete answers against real recipes and unseen English questions.
