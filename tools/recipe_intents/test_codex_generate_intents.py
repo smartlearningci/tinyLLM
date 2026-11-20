@@ -3,6 +3,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 
 FILE = Path(__file__).with_name('codex_generate_intents.py')
@@ -12,6 +13,21 @@ spec.loader.exec_module(module)
 
 
 class ContractTests(unittest.TestCase):
+    def test_recovers_saved_agent_response(self):
+        batch = [{'id': 'abc', 'question': 'What heat?'}]
+        output = {'responses': [{'id': 'abc', 'intent': 'steps', 'operation': 'get',
+                                 'confidence': .9, 'reason': 'heat'}]}
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder) / 'batches'
+            directory.mkdir()
+            event = {'type': 'item.completed', 'item': {'type': 'agent_message',
+                     'text': json.dumps(output)}}
+            (directory / 'batch_000000.events.jsonl').write_text(json.dumps(event) + '\n')
+            recovered = module.recover_events(SimpleNamespace(out=Path(folder), model='test'), [batch])
+            self.assertEqual(recovered, 1)
+            saved = json.loads((directory / 'batch_000000.json').read_text())
+            self.assertTrue(saved['items'][0]['teacher']['taxonomy_warning'])
+
     def test_distinct_questions_and_limit(self):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder) / 'questions.jsonl'
@@ -22,12 +38,16 @@ class ContractTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertNotEqual(rows[0]['id'], rows[1]['id'])
 
-    def test_rejects_wrong_ids_and_operation(self):
+    def test_rejects_wrong_ids_and_confidence_but_preserves_new_operations(self):
         batch = [{'id': 'a', 'question': 'How much sugar?'}]
         good = {'responses': [{'id': 'a', 'intent': 'quantity', 'operation': 'get',
                                'confidence': .8, 'reason': 'amount'}]}
         self.assertEqual(module.validate(good, batch)['a']['intent'], 'quantity')
-        for modified in ({'id': 'wrong'}, {'operation': 'list'}, {'confidence': 2}):
+        changed = json.loads(json.dumps(good))
+        changed['responses'][0]['operation'] = 'list'
+        annotated = module.validate(changed, batch)
+        self.assertTrue(annotated['a']['taxonomy_warning'])
+        for modified in ({'id': 'wrong'}, {'confidence': 2}):
             bad = json.loads(json.dumps(good))
             bad['responses'][0].update(modified)
             with self.assertRaises(ValueError):

@@ -64,8 +64,10 @@ def validate(data, batch):
     if set(ids) != expected or len(set(ids)) != len(ids):
         raise ValueError('Missing, duplicate or unexpected ids')
     for item in items:
-        if item['operation'] not in ALLOWED[item['intent']]:
-            raise ValueError('Incompatible intent / operation')
+        # A structured teacher response may reveal a missing operation in our
+        # preliminary ontology (e.g. steps/get for cooking heat or timing).
+        # Preserve the teacher answer for auditing instead of losing the batch.
+        item['taxonomy_warning'] = item['operation'] not in ALLOWED[item['intent']]
         if not 0 <= item['confidence'] <= 1:
             raise ValueError('Confidence out of range')
     return {x['id']: x for x in items}
@@ -107,6 +109,44 @@ def codex_run(batch, args, batch_index):
             return 'error', name
 
 
+def recover_events(args, batches):
+    """Recover complete Codex answers from saved events without another call."""
+    directory = args.out / 'batches'
+    recovered = 0
+    for index, original in enumerate(batches):
+        name = f'batch_{index:06d}'
+        target = directory / (name + '.json')
+        events = directory / (name + '.events.jsonl')
+        if target.exists() or not events.exists():
+            continue
+        candidates = []
+        for line in events.read_text(encoding='utf-8').splitlines():
+            try:
+                event = json.loads(line)
+                item = event.get('item', {})
+                if event.get('type') == 'item.completed' and item.get('type') == 'agent_message':
+                    candidates.append(json.loads(item['text']))
+            except (ValueError, KeyError, TypeError):
+                continue
+        for candidate in reversed(candidates):
+            try:
+                labelled = validate(candidate, original)
+                result = {'batch': name, 'model': args.model,
+                          'label_status': 'teacher_unverified_recovered_from_events',
+                          'items': [{**row, 'teacher': labelled[row['id']]}
+                                    for row in original]}
+                staging = directory / (name + '.tmp')
+                staging.write_text(json.dumps(result, ensure_ascii=False, indent=2),
+                                   encoding='utf-8')
+                staging.replace(target)
+                recovered += 1
+                print('recovered', name)
+                break
+            except (ValueError, KeyError):
+                continue
+    return recovered
+
+
 def export(args):
     directory = args.out / 'batches'
     results = []
@@ -133,6 +173,8 @@ def main():
     p.add_argument('--codex', default='codex')
     p.add_argument('--dry-run', action='store_true')
     p.add_argument('--export-only', action='store_true')
+    p.add_argument('--recover-events', action='store_true',
+                   help='Recover complete saved Codex responses; no new requests')
     args = p.parse_args()
     if not (1 <= args.limit <= 100000 and 1 <= args.batch_size <= 10 and
             1 <= args.workers <= 8):
@@ -144,6 +186,10 @@ def main():
     rows = samples(args.input, args.limit)
     batches = [rows[i:i + args.batch_size] for i in range(0, len(rows), args.batch_size)]
     print(f'{len(rows)} questions; {len(batches)} batches; {args.workers} workers')
+    if args.recover_events:
+        print('Recovered batches:', recover_events(args, batches))
+        export(args)
+        return
     if args.dry_run:
         print(prompt(batches[0]) if batches else 'No questions')
         print('DRY RUN: no Codex calls')
