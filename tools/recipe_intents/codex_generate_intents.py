@@ -5,6 +5,7 @@ Never silently promote teacher-generated labels to human-verified labels.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Event
 import hashlib
 import json
 import os
@@ -18,6 +19,8 @@ SCHEMA = Path(__file__).with_name('codex_intents.schema.json')
 ALLOWED = {'ingredients': {'list', 'check'}, 'quantity': {'get'},
            'steps': {'next', 'explain', 'rewrite'},
            'constraints': {'check', 'substitute'}, 'unknown': {'unknown'}}
+QUOTA_ERRORS = ('usage limit', 'usage cap', 'quota exceeded', 'rate limit exceeded',
+                'rate_limit_exceeded', 'too many requests', 'usage_limit_reached')
 
 
 def samples(path, limit):
@@ -39,18 +42,12 @@ def samples(path, limit):
 
 
 def prompt(batch):
-    return ('''You are an expert annotation teacher for a culinary-domain assistant.
-Task: classify each USER QUESTION independently without recipe context, NOT answer it.
-Intent labels: ingredients (list/membership), quantity (amount/count),
-steps (next/explain/rewrite), constraints (diet/replacement check), unknown.
-Operations: list, check, get, next, explain, rewrite, substitute, unknown.
-Use unknown/unknown for unrelated, ambiguous or multi-intent requests where one label
-cannot safely capture the user's need. Judge meaning, not keyword frequency.
-"How many grams of sugar?" -> quantity/get, NOT ingredients/check.
-"What should I do next?" -> steps/next; "Is this dairy free?" -> constraints/check.
-Be conservative. Confidence is your qualitative estimate, NOT calibrated probability.
-Return a JSON object with responses, exactly one item for EACH provided id; preserve ids.
-No recipe facts or invented answers. Short reason per item.
+    return ('''Classify culinary questions by meaning, without recipe context. Do NOT answer.
+Return ONLY JSON {"responses":[{"id":"...","intent":"...","operation":"..."}]}.
+Intents: ingredients (list/check); quantity (get: amounts, time, temperatures);
+steps (next/explain/rewrite); constraints (check/substitute); unknown (unknown).
+Use unknown/unknown for off-topic or inseparable mixed requests.
+Keep every id, exactly once; no explanations, no recipe facts.
 QUESTIONS:\n''' + json.dumps([{'id': item['id'], 'question': item['question']}
                                 for item in batch], ensure_ascii=False))
 
@@ -68,35 +65,63 @@ def validate(data, batch):
         # preliminary ontology (e.g. steps/get for cooking heat or timing).
         # Preserve the teacher answer for auditing instead of losing the batch.
         item['taxonomy_warning'] = item['operation'] not in ALLOWED[item['intent']]
-        if not 0 <= item['confidence'] <= 1:
+        if 'confidence' in item and not 0 <= item['confidence'] <= 1:
             raise ValueError('Confidence out of range')
     return {x['id']: x for x in items}
 
 
-def codex_run(batch, args, batch_index):
+def tokens_from_events(text):
+    usage = {}
+    for line in text.splitlines():
+        try:
+            event = json.loads(line)
+            if event.get('type') == 'turn.completed':
+                usage = event.get('usage') or {}
+        except ValueError:
+            continue
+    return {'input_tokens': usage.get('input_tokens', 0),
+            'output_tokens': usage.get('output_tokens', 0)}
+
+
+def codex_run(batch, args, batch_index, stop=None):
     directory = args.out / 'batches'
     directory.mkdir(parents=True, exist_ok=True)
     name = f'batch_{batch_index:06d}'
     good = directory / (name + '.json')
     if good.exists():
+        saved = json.loads(good.read_text(encoding='utf-8'))
+        if [x['id'] for x in saved['items']] != [x['id'] for x in batch]:
+            raise ValueError(f'{name}: existing result belongs to different questions; choose new --out')
         return 'skipped', name
+    if stop is not None and stop.is_set():
+        return 'paused', name
+    events = directory / (name + '.events.jsonl')
+    if events.exists() and not args.retry_errors:
+        return 'needs_review', name
     with tempfile.TemporaryDirectory(prefix='tiny-intents-') as temp:
-        temp_path = Path(temp)
-        output = temp_path / 'result.json'
+        output = Path(temp) / 'result.json'
         command = [args.codex, '--ask-for-approval', 'never', '-c',
                    f'model_reasoning_effort={args.reasoning}',
                    'exec', '--sandbox', 'read-only', '--skip-git-repo-check',
                    '--output-schema', str(SCHEMA.resolve()), '--json', '-o', str(output),
                    '--model', args.model, '-']
         try:
+            started = time.monotonic()
             process = subprocess.run(command, input=prompt(batch), text=True,
                                      capture_output=True, timeout=args.timeout, cwd=temp)
-            (directory / (name + '.events.jsonl')).write_text(process.stdout, encoding='utf-8')
+            events.write_text(process.stdout, encoding='utf-8')
+            usage = tokens_from_events(process.stdout)
+            elapsed = round(time.monotonic() - started, 2)
+            if any(pattern in (process.stderr + process.stdout).casefold() for pattern in QUOTA_ERRORS):
+                if stop is not None:
+                    stop.set()
+                raise RuntimeError('Quota/usage limit detected; pause all new batches')
             if process.returncode or not output.is_file():
                 raise RuntimeError(f'Codex exit={process.returncode}; {process.stderr[-500:]}')
             text = output.read_text(encoding='utf-8')
             labelled = validate(json.loads(text), batch)
             result = {'batch': name, 'model': args.model, 'label_status': 'teacher_unverified',
+                      'usage': usage, 'duration_seconds': elapsed,
                       'items': [{**original, 'teacher': labelled[original['id']]}
                                 for original in batch]}
             # Atomic success file, so restart skips only complete, validated batches.
@@ -150,14 +175,23 @@ def recover_events(args, batches):
 def export(args):
     directory = args.out / 'batches'
     results = []
+    total_in = total_out = elapsed_sum = calls_with_metrics = 0
     for path in sorted(directory.glob('batch_*.json')):
         batch = json.loads(path.read_text(encoding='utf-8'))
         results.extend(batch['items'])
+        if batch.get('usage'):
+            total_in += batch['usage'].get('input_tokens', 0)
+            total_out += batch['usage'].get('output_tokens', 0)
+            elapsed_sum += batch.get('duration_seconds', 0)
+            calls_with_metrics += 1
     output = args.out / 'teacher_intents_unverified.jsonl'
     with output.open('w', encoding='utf-8') as stream:
         for item in results:
             stream.write(json.dumps(item, ensure_ascii=False) + '\n')
     print('Exported', len(results), 'teacher-labelled questions to', output)
+    if calls_with_metrics:
+        print(f'Metrics: {calls_with_metrics} measured calls; {total_in} input / '
+              f'{total_out} output tokens; {elapsed_sum:.1f}s aggregate worker time')
 
 
 def main():
@@ -165,8 +199,8 @@ def main():
     p.add_argument('--input', type=Path, required=True)
     p.add_argument('--out', type=Path, default=Path('dados/intents_teacher'))
     p.add_argument('--limit', type=int, default=12)
-    p.add_argument('--batch-size', type=int, default=3)
-    p.add_argument('--workers', type=int, default=2)
+    p.add_argument('--batch-size', type=int, default=8)
+    p.add_argument('--workers', type=int, default=8)
     p.add_argument('--model', default='gpt-6-luna')
     p.add_argument('--reasoning', choices=['low', 'medium', 'high'], default='low')
     p.add_argument('--timeout', type=int, default=180)
@@ -175,9 +209,11 @@ def main():
     p.add_argument('--export-only', action='store_true')
     p.add_argument('--recover-events', action='store_true',
                    help='Recover complete saved Codex responses; no new requests')
+    p.add_argument('--retry-errors', action='store_true',
+                   help='Explicitly repeat failed calls after inspecting saved events')
     args = p.parse_args()
     if not (1 <= args.limit <= 100000 and 1 <= args.batch_size <= 10 and
-            1 <= args.workers <= 8):
+            1 <= args.workers <= 12):
         p.error('Check limit / batch-size / workers ranges')
     args.out.mkdir(parents=True, exist_ok=True)
     if args.export_only:
@@ -202,16 +238,20 @@ def main():
                            text=True, timeout=30)
     if login.returncode or 'chatgpt' not in (login.stdout + login.stderr).casefold():
         p.error('Run codex login with your ChatGPT account first')
+    stop = Event()
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futures = [pool.submit(codex_run, group, args, i) for i, group in enumerate(batches)]
+        futures = [pool.submit(codex_run, group, args, i, stop) for i, group in enumerate(batches)]
         errors = 0
+        needs_review = 0
         for task in as_completed(futures):
             status, name = task.result()
             print(status, name, flush=True)
             errors += (status == 'error')
+            needs_review += (status == 'needs_review')
     export(args)
-    if errors:
-        raise SystemExit(f'{errors} failed batches; review .error.txt files before retrying')
+    if errors or needs_review or stop.is_set():
+        raise SystemExit(f'{errors} failed batches, {needs_review} saved event batches need review. '
+                         'Use --recover-events before choosing --retry-errors.')
 
 
 if __name__ == '__main__':
