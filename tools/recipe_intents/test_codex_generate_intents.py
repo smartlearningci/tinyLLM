@@ -13,6 +13,28 @@ spec.loader.exec_module(module)
 
 
 class ContractTests(unittest.TestCase):
+    def test_compact_prompt_only_sends_questions(self):
+        batch = [{'id': 'abc', 'question': 'How much salt?',
+                  'recipe_id': 'private_recipe_123', 'candidate': {'intent': 'steps'}}]
+        text = module.prompt(batch)
+        self.assertIn('How much salt?', text)
+        self.assertNotIn('private_recipe_123', text)
+        self.assertNotIn('"candidate"', text)
+        self.assertNotIn('"reason":"..."', text)
+
+    def test_schema_matches_compact_labels(self):
+        schema = json.loads(Path(__file__).with_name('codex_intents.schema.json').read_text())
+        required = schema['properties']['responses']['items']['required']
+        self.assertEqual(required, ['id', 'intent', 'operation'])
+
+    def test_usage_from_events(self):
+        events = '\n'.join(json.dumps(x) for x in [
+            {'type': 'turn.completed', 'usage': {'input_tokens': 120, 'output_tokens': 5}},
+            {'type': 'turn.completed', 'usage': {'input_tokens': 130, 'output_tokens': 8}},
+        ])
+        self.assertEqual(module.tokens_from_events(events),
+                         {'input_tokens': 130, 'output_tokens': 8})
+
     def test_recovers_saved_agent_response(self):
         batch = [{'id': 'abc', 'question': 'What heat?'}]
         output = {'responses': [{'id': 'abc', 'intent': 'steps', 'operation': 'get',
