@@ -28,6 +28,19 @@ Resultados em `dados/intents_teacher/batches/` e agregado em
 `dados/intents_teacher/teacher_intents_unverified.jsonl`.
 O script não volta a processar lotes concluídos e válidos, mas permite
 reexecutar lotes falhados. Não altera o checkpoint, o dataset original ou a BD.
+Combinações novas propostas pelo professor (por exemplo `steps/get`) ficam
+preservadas com `teacher.taxonomy_warning=true` para revisão da taxonomia;
+não são tratadas como rótulos automaticamente aprovados.
+
+Se uma versão anterior rejeitou um lote completo por incompatibilidade
+`intent/operation`, recuperar diretamente as respostas registadas em
+`batches/batch_*.events.jsonl` **sem gastar novas chamadas**:
+
+```bash
+python tools/recipe_intents/codex_generate_intents.py \
+  --input intent_dataset_v02/train.jsonl --limit 12 --batch-size 3 \
+  --workers 2 --recover-events
+```
 
 **Segurança operacional:** usar inicialmente 12 perguntas e 2 trabalhadores.
 Antes de aumentar o volume, rever qualidade, contagens de erros e consumo.
