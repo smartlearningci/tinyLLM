@@ -8,13 +8,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "intent", "operation", "confidence", "reason"],
+        "required": ["id", "intent", "operation"],
         "properties": {
           "id": {"type": "string"},
           "intent": {"type": "string", "enum": ["ingredients", "quantity", "steps", "constraints", "unknown"]},
-          "operation": {"type": "string", "enum": ["list", "check", "get", "next", "explain", "rewrite", "substitute", "unknown"]},
-          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-          "reason": {"type": "string"}
+          "operation": {"type": "string", "enum": ["list", "check", "get", "next", "explain", "rewrite", "substitute", "unknown"]}
         }
       }
     }
