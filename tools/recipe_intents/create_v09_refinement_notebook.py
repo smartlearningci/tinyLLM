@@ -26,16 +26,17 @@ md("""
     Este notebook **continua os pesos do TinySLM `epoch_3`**, sem recomeçar o
     treino inicial, para classificar a intenção de uma pergunta **sem a receita**.
 
-    ### Preparação no Kaggle — três Inputs
+    ### Preparação no Kaggle — dois Inputs (dataset de intenções automático)
 
     1. Modelo: dataset `epoca3`, contendo `epoch_3/model.safetensors`,
        `config.json`, `tokenizer.json` e `tokenizer_config.json`.
-    2. Dataset privado criado a partir do ZIP **`TinySLM_C2_intents_sft_v01.zip`**.
-       O notebook aceita tanto o ZIP como os ficheiros extraídos.
-    3. Dataset **`TinySLM Culinary Conversations v04`** (ficheiros `train.jsonl`,
+    2. Dataset **`TinySLM Culinary Conversations v04`** (ficheiros `train.jsonl`,
        `validation.jsonl`, `dataset_report.json`) para prevenir esquecimento.
 
-    Ativar **GPU T4** (ou equivalente) e escolher **Save Version → Save & Run All**.
+    Ativar **GPU T4** (ou equivalente) e **Internet ON**. O notebook descarrega
+    automaticamente o ZIP de intenções publicado no GitHub. Se não quiseres
+    ativar Internet, podes adicioná-lo como terceiro Input manualmente.
+    Depois escolher **Save Version → Save & Run All**.
 
     **Importante:** os rótulos do professor são *teacher_unverified*; a precisão
     calculada face a eles mede concordância com o professor, **não** precisão
@@ -77,13 +78,16 @@ py("""
     print('GPU:', torch.cuda.get_device_name(0), '| AMP:', AMP_DTYPE)
 """)
 
-md("""## 2. Localizar e validar os três inputs
+md("""## 2. Localizar e validar os inputs
 
     O notebook procura automaticamente o `epoch_3` e os datasets. Se faltar
-    algum, mostra exatamente qual input é necessário adicionar ao Kaggle.
+    o dataset de intenções, descarrega-o do commit GitHub auditado (1,3 MB)
+    e verifica o SHA-256 antes de o utilizar. O modelo e as conversas v04
+    continuam a ser carregados dos dois Inputs do Kaggle.
 """)
 
 py("""
+    import urllib.request
     INPUT = Path('/kaggle/input')
     assert INPUT.exists(), 'Executar no Kaggle.'
 
@@ -99,7 +103,23 @@ py("""
 
     extracted = [p.parent for p in INPUT.rglob('sft_report.json') if (p.parent / 'train.jsonl').is_file()]
     zips = list(INPUT.rglob('TinySLM_C2_intents_sft_v01.zip'))
-    assert len(extracted) + len(zips) == 1, 'Adicionar o dataset Kaggle com TinySLM_C2_intents_sft_v01.zip.'
+    if not extracted and not zips:
+        url = ('https://raw.githubusercontent.com/smartlearningci/tinyLLM/'
+               '5c9a6116f80f25ea0c8409420bae26d85ff7b4ab/'
+               'data/intent_teacher/TinySLM_C2_intents_sft_v01.zip')
+        try:
+            with urllib.request.urlopen(url, timeout=90) as response:
+                content = response.read()
+        except Exception as exc:
+            raise RuntimeError('Não foi possível descarregar o dataset. Ativa Internet no Kaggle '
+                               'ou adiciona TinySLM_C2_intents_sft_v01.zip em Add Input.') from exc
+        expected_zip_sha = '33aad487c671581f8df38d20255da1297dbbac5760fd5e5a44dc8cf909671a71'
+        assert hashlib.sha256(content).hexdigest() == expected_zip_sha, 'ZIP do GitHub não corresponde à versão auditada.'
+        cache = OUT / 'TinySLM_C2_intents_sft_v01.zip'
+        cache.write_bytes(content)
+        zips = [cache]
+        print('Dataset de intenções descarregado e verificado:', len(content), 'bytes')
+    assert len(extracted) + len(zips) == 1, 'Encontrados datasets de intenções duplicados; mantém apenas um.'
     if extracted:
         SFT = extracted[0]
     else:
