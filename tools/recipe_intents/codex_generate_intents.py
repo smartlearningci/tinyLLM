@@ -35,7 +35,9 @@ def samples(path, limit):
         seen.add(question.casefold())
         result.append({'id': hashlib.sha256(question.encode('utf-8')).hexdigest()[:20],
                        'question': question, 'candidate': row.get('target'),
-                       'recipe_id': row.get('recipe_id')})
+                       'recipe_id': row.get('recipe_id'),
+                       'origin': row.get('origin'),
+                       'review_reason': row.get('review_reason')})
         if len(result) >= limit:
             break
     return result
