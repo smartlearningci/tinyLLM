@@ -2,15 +2,18 @@
 
 ## 1. Preparação
 
-No Kaggle, abrir **Add Input** e garantir três datasets privados:
+No Kaggle, abrir **Add Input** e garantir **dois datasets privados**:
 
 1. `epoca3`: com uma pasta `epoch_3` e `model.safetensors`, `config.json`,
    `tokenizer.json`, `tokenizer_config.json` (pesos anteriores do TinySLM).
-2. Dataset novo contendo **`TinySLM_C2_intents_sft_v01.zip`**. Fazer download
-   do ficheiro do diretório `data/intent_teacher/` no GitHub e carregá-lo como
-   input Kaggle (ou carregar os ficheiros extraídos do ZIP).
-3. `TinySLM Culinary Conversations v04`: com `train.jsonl`, `validation.jsonl`,
+2. `TinySLM Culinary Conversations v04`: com `train.jsonl`, `validation.jsonl`,
    `dataset_report.json`, para preservar a capacidade de responder sobre receitas.
+
+O dataset **`TinySLM_C2_intents_sft_v01.zip`** é descarregado automaticamente
+do GitHub (commit fixo e SHA-256 verificado): ativar **Internet ON** no Kaggle.
+Se não houver acesso à Internet, descarregar o ZIP da pasta `data/intent_teacher/`
+no GitHub e adicioná-lo como terceiro **Add Input**; o notebook aceita o ZIP ou
+os ficheiros extraídos.
 
 Abrir `notebooks/TinySLM_C2_v09_refinamento_intencoes.ipynb` no Kaggle e ativar
 **GPU T4** ou equivalente. Em **Save Version**, selecionar **Save & Run All**.
