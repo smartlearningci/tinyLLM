@@ -30,6 +30,8 @@ Abre http://127.0.0.1:8766. A migração copia a fila, receitas, logs e pastas d
 
 **[Começar aqui — Fluxo completo de trabalho](docs/FLUXO_COMPLETO.md)**: guia central com os comandos pela ordem correta, objetivo das 5 108 receitas, planeamento, geração, recuperação, auditoria e próximo treino.
 
+**[TinySLM MVP C1/C2 — histórico, requisitos e resultados R1/R2](docs/tinyslm_mvp/00_HISTORICO_E_DECISOES.md)**: nova orientação de 22/11/2026. Normalização e auditoria antes de treinar chamadas de ferramentas. Consultar também [o roteiro](docs/tinyslm_mvp/01_REQUISITOS_E_ROTEIRO.md) e [os resultados das etapas 1–2](docs/tinyslm_mvp/02_RESULTADOS_ETAPAS_1_2.md).
+
 - [Dados e estados](dados/README.md)
 - [Gerar aqui no chat](dados/GERAR_CHAT.md)
 - [Gerar automaticamente por CLI](dados/GERAR_CLI.md)

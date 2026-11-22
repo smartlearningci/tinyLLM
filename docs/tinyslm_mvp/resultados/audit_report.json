@@ -1,0 +1,39 @@
+{
+  "schema": "tinyslm-natural-recipe-v13.0",
+  "source_filename": "recipes.sqlite",
+  "source_sha256": "d7f45f858719b74150bdf6966b75df14ea694f3481c6104f95648ae4bff1706c",
+  "historical_catalog_count": 5108,
+  "source_available_count": 5025,
+  "difference_vs_historical_count": 83,
+  "count_difference_is_missing_recipe_proof": false,
+  "source_rows_preserved": 5025,
+  "all_original_fields_exact": true,
+  "repeated_recipe_ids": 0,
+  "duplicate_titles_extra_rows": 0,
+  "counts": {
+    "recipes": 5025,
+    "ingredients": 45456,
+    "preparation_segments": 58021,
+    "ingredients_raw_only": 296,
+    "ingredients_ambiguous": 4879,
+    "recipes_for_review": 3248
+  },
+  "warnings_per_type": {
+    "uncertain_ingredient_comma": 2997,
+    "ingredient_without_leading_quantity": 391,
+    "preparation_more_than_thirty_segments": 162,
+    "preparation_fewer_than_two_segments": 205,
+    "ingredient_delimiters_not_roundtrippable": 64
+  },
+  "unreviewed_recipe_count": 3248,
+  "training_approved_count": 0,
+  "ready_for_unqualified_training": false,
+  "source_language": "English (source unchanged)",
+  "limitations": [
+    "The catalog of 5108 and the local 5025-recipe export may differ in provenance; IDs cannot be reconciled without the historical source.",
+    "Ingredient delimiters and preparation segments are heuristic; all original source fields are preserved byte-for-byte as Python strings.",
+    "Warnings require review; absence of warnings does not certify factual correctness.",
+    "The original texts are not translated or silently truncated.",
+    "No training, model evaluation or C1/C2 acceptance was performed."
+  ]
+}
