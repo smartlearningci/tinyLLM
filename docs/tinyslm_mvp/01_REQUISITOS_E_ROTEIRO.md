@@ -83,5 +83,4 @@ Metas de aceitação **propostas, por confirmar em avaliação**:
 
 - Etapas 1 e 2: executar scripts de normalização e auditoria, publicar
   artefactos e resultados reais, sem declarar os casos por rever como aceites.
-- Etapa 3: **não iniciada**. Os ficheiros históricos não são alterados;
-  preparar C1 e C2 só após rever as evidências e a ferramenta.
+- Etapa 3: **concluída como preparação de candidatos**. Foram auditadas 36.789 perguntas C1/C2; 36.746 possuem citação literal, 43 seguem para revisão. Ver `03_ETAPA_3_C1_C2.md`. Ainda não há respostas de ferramenta verificadas nem exemplos aprovados para treino.
