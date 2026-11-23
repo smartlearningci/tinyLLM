@@ -1,0 +1,45 @@
+{
+  "split": "validation",
+  "n": 1815,
+  "baselines": {
+    "baseline": {
+      "status": {
+        "EVIDENCE_CANDIDATES": 1653,
+        "INSUFFICIENT_EVIDENCE": 162
+      },
+      "quote_recall_ge_0_50": 0.616,
+      "quote_recall_ge_0_80": 0.438,
+      "quote_recall_mean": 0.6168,
+      "avg_passages": 2.91,
+      "truncated_count": 0
+    },
+    "v2_no_router": {
+      "status": {
+        "EVIDENCE_CANDIDATES": 1656,
+        "INSUFFICIENT_EVIDENCE": 159
+      },
+      "quote_recall_ge_0_50": 0.7085,
+      "quote_recall_ge_0_80": 0.5421,
+      "quote_recall_mean": 0.6898,
+      "avg_passages": 4.18,
+      "truncated_count": 276
+    },
+    "v2_router": {
+      "status": {
+        "EVIDENCE_CANDIDATES": 1656,
+        "INSUFFICIENT_EVIDENCE": 159
+      },
+      "quote_recall_ge_0_50": 0.708,
+      "quote_recall_ge_0_80": 0.5421,
+      "quote_recall_mean": 0.6901,
+      "avg_passages": 4.19,
+      "truncated_count": 277
+    }
+  },
+  "limitations": [
+    "Historical source quotes are weak lexical references, not ground truth.",
+    "Multiple passages may be required; increased recall can result from returning more text.",
+    "No answer correctness or tool decision metric, no human review yet.",
+    "Split by recipe for this dataset only; previous training exposure may not be fully excluded."
+  ]
+}
