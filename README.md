@@ -32,6 +32,8 @@ Abre http://127.0.0.1:8766. A migração copia a fila, receitas, logs e pastas d
 
 **[TinySLM MVP C1/C2 — histórico, requisitos e resultados R1/R2](docs/tinyslm_mvp/00_HISTORICO_E_DECISOES.md)**: nova orientação de 22/11/2026. Normalização e auditoria antes de treinar chamadas de ferramentas. Consultar também [o roteiro](docs/tinyslm_mvp/01_REQUISITOS_E_ROTEIRO.md) e [os resultados das etapas 1–2](docs/tinyslm_mvp/02_RESULTADOS_ETAPAS_1_2.md) e [a preparação C1/C2 — etapa 3](docs/tinyslm_mvp/03_ETAPA_3_C1_C2.md) e [a implementação inicial RECIPE_SEARCH — etapa 4](docs/tinyslm_mvp/04_RECIPE_SEARCH_IMPLEMENTACAO.md) e [a avaliação/melhoria V2 — etapa 5](docs/tinyslm_mvp/05_ETAPA_5_RECIPE_SEARCH_V2.md).
 
+**[Nova arquitetura TinySLM (23/11/2026): RECIPE_CONTEXT e treino de chamadas à ferramenta](docs/tinyslm_mvp/06_NOVA_ARQUITETURA_RECIPE_CONTEXT.md)** — substitui a antiga estratégia RECIPE_SEARCH de recuperação semântica.
+
 - [Dados e estados](dados/README.md)
 - [Gerar aqui no chat](dados/GERAR_CHAT.md)
 - [Gerar automaticamente por CLI](dados/GERAR_CLI.md)

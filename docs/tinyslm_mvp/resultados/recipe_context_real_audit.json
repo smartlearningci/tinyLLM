@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-23",
+  "tool": "RECIPE_CONTEXT",
+  "version": "initial",
+  "source": "recipes_normalized.sqlite from TinySLM_MVP_R1_R2_5025_receitas.zip",
+  "recipe_count": 5025,
+  "section_counts": {
+    "DESCRIPTION": {"found": 5024, "empty": 1, "multi_chunk_at_900_chars": 41, "total_chunks": 5104},
+    "INGREDIENTS": {"found": 5025, "empty": 0, "multi_chunk_at_900_chars": 12, "total_chunks": 5037},
+    "PREPARATION": {"found": 5025, "empty": 0, "multi_chunk_at_900_chars": 1965, "total_chunks": 7805},
+    "FULL": {"found": 5025, "empty": 0, "multi_chunk_at_900_chars": 3831, "total_chunks": 10926}
+  },
+  "unit_tests_new": 11,
+  "unit_tests_new_status": "PASS",
+  "verification_scope": "SQLite read-only retrieval and exact character pagination; not factual correctness of model answers",
+  "limitations": [
+    "Recipe text is in English; source has parser warnings in many records.",
+    "900-character page size is not proven to fit the actual TinySLM 512-token context.",
+    "No C2 tool-call selector has been trained or evaluated.",
+    "The tool doesn't decide if source text is sufficient for a question.",
+    "Prior training may contaminate within-corpus recipe-level holdouts."
+  ]
+}
