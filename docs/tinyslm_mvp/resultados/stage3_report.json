@@ -1,0 +1,80 @@
+{
+  "source_dialogue_rows": 138794,
+  "source_recipes": 5025,
+  "historical_counts": {
+    "C1": 18230,
+    "C2": 18559
+  },
+  "candidate_counts": {
+    "C1": 18222,
+    "C2": 18524
+  },
+  "review_counts": {
+    "C1/evidence_not_exact_in_source": 8,
+    "C2/evidence_not_exact_in_source": 35
+  },
+  "candidate_with_normalization_warnings": {
+    "C1": 11747,
+    "C2": 11942
+  },
+  "by_split": {
+    "C1": {
+      "train": 14650,
+      "validation": 1800,
+      "test": 1772
+    },
+    "C2": {
+      "train": 14882,
+      "validation": 1815,
+      "test": 1827
+    }
+  },
+  "unique_recipes_in_candidates": 5025,
+  "checks": {
+    "unique_example_ids": true,
+    "recipe_splits_disjoint": true,
+    "all_source_quotes_exact": true
+  },
+  "warnings": [
+    "Teacher answers are NOT certified for training by quote presence alone.",
+    "C2 tool call targets are candidate targets, not executed tool calls.",
+    "C2 tool answers are absent pending separate RECIPE_SEARCH retrieval evaluation.",
+    "Recipe tokenizer length and maximum context of 512 tokens not yet validated.",
+    "Historical prior training may include these recipes; splits are only disjoint within this newly prepared dataset.",
+    "Normalization warnings must be reviewed before any affected recipe is promoted to training."
+  ],
+  "examples": [
+    {
+      "id": "000046fa3e279f2c9c34df5b:0",
+      "capability": "C2",
+      "title": "braised lamb shanks",
+      "question": "I want to know when the sweet potatoes go in. Which ingredients should I hold back until that point?",
+      "source_quote": "stir in potatoes and simmer covered an additional 1 hour or until potatoes and lamb are tender.",
+      "tool_call_target": "CALL TOOL\nNAME: RECIPE_SEARCH\nQUERY: I want to know when the sweet potatoes go in. Which ingredients should I hold back until that point?"
+    },
+    {
+      "id": "0005e5ef8ccbc79844ec408e:1",
+      "capability": "C1",
+      "title": "lemon and orange chicken",
+      "question": "I want to keep the chicken mildly seasoned. How much salsa macha does this recipe list?",
+      "source_quote": "0.5 teaspoon salsa macha",
+      "tool_call_target": null
+    },
+    {
+      "id": "0005e5ef8ccbc79844ec408e:2",
+      "capability": "C2",
+      "title": "lemon and orange chicken",
+      "question": "I’m trying to prep the citrus and onion for the casserole. Which fruit and onion steps should I focus on?",
+      "source_quote": "place half of the onion in a casserole along with the remaining lemon and oranges . make sure to cut them into slices",
+      "tool_call_target": "CALL TOOL\nNAME: RECIPE_SEARCH\nQUERY: I’m trying to prep the citrus and onion for the casserole. Which fruit and onion steps should I focus on?"
+    },
+    {
+      "id": "0005e638c9b7e67c4e891ad3:1",
+      "capability": "C1",
+      "title": "kimchi pork bao buns with pulled pork and crispy onions",
+      "question": "What is the stated steaming time for the bao buns?",
+      "source_quote": "steam bao buns for 5 7 minutes until they are hot and pliable",
+      "tool_call_target": null
+    }
+  ]
+}

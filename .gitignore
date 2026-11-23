@@ -17,3 +17,6 @@ __pycache__/
 /tools/recipe_intents/*.joblib
 /tools/recipe_intents/*.jsonl
 /tools/recipe_intents/local_model/
+# The TinySLM MVP commits code, definitions and audit evidence, not corpora.
+/docs/tinyslm_mvp/resultados/*.jsonl.gz
+/docs/tinyslm_mvp/resultados/*.sqlite
