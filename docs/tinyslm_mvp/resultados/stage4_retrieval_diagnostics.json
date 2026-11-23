@@ -1,0 +1,160 @@
+{
+  "split": "test",
+  "n": 1827,
+  "status": {
+    "EVIDENCE_CANDIDATES": 1676,
+    "INSUFFICIENT_EVIDENCE": 151
+  },
+  "weak_quote_recall_at_least_0_5": 0.6234,
+  "weak_quote_recall_at_least_0_8": 0.4543,
+  "weak_quote_recall_mean": 0.6219,
+  "weak_quote_warning": "Not ground truth. Quote length/segmentation can distort scores. Human review required.",
+  "examples_of_failure": [
+    {
+      "id": "00c7b1968acbd7ce2d15ab38:1",
+      "title": "skinny er shamrock shake",
+      "question": "I want to make the shake now. Which instructions cover the actual blending and serving?",
+      "quotes": [
+        "pour the milk, frozen yogurt, avocado, sugar, mint extract and ice into your blender . blend 3 4 minutes until the mixture is thick and icy",
+        "pour into two glasses, and serve with a straw . serve immediately."
+      ],
+      "retrieved": [],
+      "quote_overlap_recall": 0.0
+    },
+    {
+      "id": "018af686eceb9997e56b8554:2",
+      "title": "classic egg salad",
+      "question": "I want to serve this egg salad over salad. Which serving suggestion from the recipe fits that plan?",
+      "quotes": [
+        "for lunch in a wrap, over salad or in a sandwich"
+      ],
+      "retrieved": [],
+      "quote_overlap_recall": 0.0
+    },
+    {
+      "id": "02c9e10ccf175932246705c7:1",
+      "title": "shrimp zoodles parmesan for two",
+      "question": "I’m preparing the tomato sauce first. Which ingredients and steps should I focus on for that?",
+      "quotes": [
+        "in a large oven safe skillet heat the oil over medium heat . add the garlic and cook until browned, about 2 minutes . add the crushed tomatoes, salt and pepper and simmer on low 5 to 6 minutes"
+      ],
+      "retrieved": [
+        "when the shrimp is done, add the zucchini noodles and cook 1 1/2 to 2 minutes tops, stirring to combine with sauce"
+      ],
+      "quote_overlap_recall": 0.15
+    },
+    {
+      "id": "03406d15acbda1b7d0c0189c:2",
+      "title": "mexican chicken cacciatore",
+      "question": "I want to identify what goes on the pasta as the finished dish is served. Which instructions should I follow?",
+      "quotes": [
+        "12.0 ounce spaghetti, cooked and drained, 2.0 tablespoon chopped fresh cilantro",
+        "serve over hot spaghetti and garnish with cilantro."
+      ],
+      "retrieved": [],
+      "quote_overlap_recall": 0.0
+    },
+    {
+      "id": "046401f264f553ae424bad9e:0",
+      "title": "taco soup",
+      "question": "I’m organizing ingredients for the stovetop stage, not the toppings. Which ingredients go into the pot before it simmers?",
+      "quotes": [
+        "stir in the onions, taco seasoning and dip mix",
+        "stir in the tomatoes both kinds, with their juices, beans with their juices and corn with its juices"
+      ],
+      "retrieved": [
+        "bring to a boil over medium high heat, reduce to a simmer, cover and cook for 15 minutes"
+      ],
+      "quote_overlap_recall": 0.0
+    },
+    {
+      "id": "046924191a7924b54767dcd7:3",
+      "title": "on the go apple 'n peanut butter",
+      "question": "I’m preparing this to carry with me. Which ingredients and method steps are relevant to making it portable?",
+      "quotes": [
+        "1.0 apple, 1.0 tablespoon skippy creamy peanut butter",
+        "then 'glue' apple back together . tightly wrap in plastic wrap . grab it and eat on the go"
+      ],
+      "retrieved": [],
+      "quote_overlap_recall": 0.0
+    },
+    {
+      "id": "05d8a1ee7d7a1e5b7323a87e:0",
+      "title": "crispy asian pizza",
+      "question": "I’m trying to get the pizza assembled. Which ingredients go into the sauce, and what should I spread it on?",
+      "quotes": [
+        "asian sauce in small bowl stir together hoisin sauce, plum sauce, peanut butter, garlic and ginger root . place pork and barbecue sauce in self sealing plastic bag seal and turn several times to coat . heat oven to 375 degrees f . place lavosh on baking sheet . spread with oriental sauce to within 1/2 inch of edge ."
+      ],
+      "retrieved": [
+        "spread with oriental sauce to within 1/2 inch of edge",
+        "substitute 14 16 inch prebaked pizza crust",
+        "2.0 tablespoon plum sauce",
+        "0.3 cup hoisin sauce"
+      ],
+      "quote_overlap_recall": 0.222
+    },
+    {
+      "id": "071a90d63ad5b2521bfe3a6b:1",
+      "title": "vegan hawaiian poke bowl with teriyaki sauce",
+      "question": "For this poke bowl, I only need a checklist for grilling the pineapple. Leave out the tempeh and sauce instructions.",
+      "quotes": [
+        "heat a griddle until medium high and then add the slices of pineapple . turn the heat down to medium and grill until the bottom of the pineapple rings have griddle marks . remove the pineapple rings from the griddle and let them cool slightly . slice the rings in half and place them on the rice next to the veggies ."
+      ],
+      "retrieved": [
+        "now it's time to grill the tempeh and pineapple",
+        "to make the teriyaki sauce, put all the ingredients from the sauce into a mixing bowl and whisk together",
+        "once the sauce starts to bubble, add the tempeh triangles and cook together for another 5 minutes until the sauce has thickened",
+        "take them out from the pan and set aside"
+      ],
+      "quote_overlap_recall": 0.167
+    },
+    {
+      "id": "08085ab802d0f2823e1df5ba:2",
+      "title": "easy persian beef lettuce cups",
+      "question": "I'm making the lettuce cups and want to set out the ingredients specifically listed for assembling or finishing them. Which ones should I gather?",
+      "quotes": [
+        "1.0 pomegranate arils, 150.0 gram plain greek yogurt, 1.0 red onion, mint sprigs, 2.0 head lettuce, 25.0 gram feta cheese"
+      ],
+      "retrieved": [
+        "http // persian beef lettuce cups/",
+        "2.0 head lettuce"
+      ],
+      "quote_overlap_recall": 0.143
+    },
+    {
+      "id": "0a5b5e4a411ccaaf19f67b77:3",
+      "title": "mad men, \"the runaways\" and screwdrivers",
+      "question": "I’m preparing the drink and only have the supplied text. Which mixing steps should I follow?",
+      "quotes": [
+        "read up directions on http //bit.ly/1fikthf"
+      ],
+      "retrieved": [],
+      "quote_overlap_recall": 0.0
+    },
+    {
+      "id": "0a97a6aa7f601d73164c32f5:0",
+      "title": "best spicy sweet potato fries",
+      "question": "I’m new to this recipe. Which steps matter for getting the seasoning onto the sweet potato wedges?",
+      "quotes": [
+        "place the sweet potatoes in a large mixing bowl and drizzle with olive oil . sprinkle evenly with the chili powder, cayenne pepper, salt, and black pepper, to taste . use a rubber spatula to toss the sweet potatoes until they are evenly coated"
+      ],
+      "retrieved": [
+        "cut the sweet potatoes into wedges about 3/4 inch thick",
+        "transfer the sweet potatoes to the baking sheet and arrange so there is as much space between the wedges as possible",
+        "1.0 pound sweet potatoes",
+        "carefully flip the sweet potatoes"
+      ],
+      "quote_overlap_recall": 0.087
+    },
+    {
+      "id": "0baf7284fe30b8009f88ab29:0",
+      "title": "salsa verde",
+      "question": "I’m adapting this recipe to focus on the roasted produce. Which items are roasted, and what should I do to them?",
+      "quotes": [
+        "arrange the tomatillos on the foil along with the poblano and serrano chill peppers . broil until they are charred on top, about 3 minutes . use tongs to turn and broil the other sides until charred, 3 to 4 minutes"
+      ],
+      "retrieved": [],
+      "quote_overlap_recall": 0.0
+    }
+  ]
+}
