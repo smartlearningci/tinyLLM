@@ -42,6 +42,10 @@ Métrica: **sobreposição de tokens entre excertos recuperados e as citações 
 
 Treino do router: 14.317 exemplos com rótulos automáticos derivados da localização das citações na receita; validação 1.743. Acordo com os rótulos fracos na validação: **75,67%**. Não equivale a reconhecer corretamente a intenção nem a encontrar evidência suficiente.
 
+## Revisão qualitativa assistida de 100 casos (23/11/2026)
+
+A amostra original de 100 casos foi revista contra a SQLite, inclusive `description`. A avaliação assistida encontrou 12/100 pedidos integralmente satisfeitos, 60/100 com pelo menos uma passagem relevante e 26/100 com violação de restrições explícitas. **A amostra é estratificada e deliberadamente difícil; não representa uma estimativa global.** Os campos `human_*` permanecem nulos e a validação humana independente continua pendente. Ver [revisão caso a caso e prioridades](05B_REVISAO_100_CASOS.md). A RECIPE_SEARCH não está aprovada para produzir automaticamente treino C2.
+
 ## Avaliação humana pendente
 
 Foi criada a amostra `manual_review_100.jsonl` com **100 casos não pontuados**: 20 melhorias lexicais, 20 regressões, 20 resultados truncados, 20 sem candidatos e 20 casos gerais. Cada caso tem pergunta, citações históricas (referência fraca), excertos V1 e V2 e campos `human_evidence_correct`, `human_evidence_complete` e `human_contradiction_or_exclusion`, inicialmente `null`. Estes dados específicos estão no pacote de trabalho, **não publicados no Git**.
