@@ -1,0 +1,35 @@
+{
+  "training_count": 14317,
+  "validation_count": 1743,
+  "weak_label_validation_accuracy": 0.7567,
+  "weak_label_validation_by_section": {
+    "INGREDIENTS": {
+      "n": 60,
+      "recall": 0.85
+    },
+    "MIXED": {
+      "n": 415,
+      "recall": 0.7446
+    },
+    "PREPARATION": {
+      "n": 1268,
+      "recall": 0.7563
+    }
+  },
+  "vocabulary_size": 2500,
+  "labels_by_split": {
+    "test/EXCLUDED": 69,
+    "test/INGREDIENTS": 54,
+    "test/MIXED": 404,
+    "test/PREPARATION": 1300,
+    "train/EXCLUDED": 565,
+    "train/INGREDIENTS": 444,
+    "train/MIXED": 3216,
+    "train/PREPARATION": 10657,
+    "validation/EXCLUDED": 72,
+    "validation/INGREDIENTS": 60,
+    "validation/MIXED": 415,
+    "validation/PREPARATION": 1268
+  },
+  "warning": "Weak labels are quote positions, not verified question intent, human answer correctness, or evidence completeness. Model optional and not used to override hard query constraints."
+}
