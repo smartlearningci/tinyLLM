@@ -3,7 +3,9 @@
 Estado: decidido em 22/11/2026. Trabalhar **uma etapa de cada vez**;
 apresentar resultados antes de avançar. Não executar fine-tuning nesta fase.
 
-## Contratos fechados
+> **ATUALIZAÇÃO DE ARQUITETURA — 23/11/2026:** as secções antigas **R2/R4** sobre `RECIPE_SEARCH` e TF-IDF estão **substituídas** pela decisão documentada em [06_NOVA_ARQUITETURA_RECIPE_CONTEXT.md](06_NOVA_ARQUITETURA_RECIPE_CONTEXT.md). O modelo passa a escolher `RECIPE_CONTEXT` + `SECTION` + `CHUNK`, a ferramenta devolve apenas texto real da SQLite. As V1/V2 são histórico. Manter este documento para rastrear a evolução.
+
+## Contratos fechados (versão histórica, exceto R1/R3/R5)
 
 **R1 — Receitas:** todas as receitas da fonte de treino numa estrutura textual
 fixa, legível, sem JSON no contexto do TinySLM. Manter os campos título,
