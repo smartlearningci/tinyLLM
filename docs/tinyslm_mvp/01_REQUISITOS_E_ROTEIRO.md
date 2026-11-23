@@ -64,7 +64,7 @@ não apoiadas. Testar perguntas fora do domínio separadamente.
 | 1 | Normalizar 100% das receitas **disponíveis**, sem perda de fonte | Dataset completo, esquema e exemplos reais |
 | 2 | Auditar: integridade, distribuição, ambiguidades, 5.025 vs 5.108 | Relatório reproduzível + fila de revisão + lacunas explícitas |
 | 3 | Reaproveitar perguntas/respostas históricas **C1/C2**, reconciliar referências | Splits por receita; respostas e citações verificadas |
-| 4 | Construir `RECIPE_SEARCH` sobre a receita conhecida | Implementação em CPU, output textual e estados explícitos |
+| 4 | Construir `RECIPE_SEARCH` sobre a receita conhecida | **Baseline implementada** em CPU; evidência ainda não certificada (ver `04_RECIPE_SEARCH_IMPLEMENTACAO.md`) |
 | 5 | Avaliar ferramenta isoladamente | Métricas de evidência e casos de erro reais |
 | 6 | Congelar protocolo textual R2 e exemplos | Testes dos formatos, sem JSON no prompt |
 | 7 | Produzir treino C1 direto + C2 pedir tool + C2 responder após tool | Dados massivos aprovados, sem leakage |
