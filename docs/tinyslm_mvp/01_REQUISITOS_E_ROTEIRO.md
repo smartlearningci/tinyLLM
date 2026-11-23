@@ -65,7 +65,7 @@ não apoiadas. Testar perguntas fora do domínio separadamente.
 | 2 | Auditar: integridade, distribuição, ambiguidades, 5.025 vs 5.108 | Relatório reproduzível + fila de revisão + lacunas explícitas |
 | 3 | Reaproveitar perguntas/respostas históricas **C1/C2**, reconciliar referências | Splits por receita; respostas e citações verificadas |
 | 4 | Construir `RECIPE_SEARCH` sobre a receita conhecida | **Baseline implementada** em CPU; evidência ainda não certificada (ver `04_RECIPE_SEARCH_IMPLEMENTACAO.md`) |
-| 5 | Avaliar ferramenta isoladamente | Métricas de evidência e casos de erro reais |
+| 5 | Avaliar ferramenta isoladamente | **V2 implementada e diagnosticada**, mas sem aceitação factual: ver `05_ETAPA_5_RECIPE_SEARCH_V2.md`; revisão humana pendente |
 | 6 | Congelar protocolo textual R2 e exemplos | Testes dos formatos, sem JSON no prompt |
 | 7 | Produzir treino C1 direto + C2 pedir tool + C2 responder após tool | Dados massivos aprovados, sem leakage |
 | 8 | Fine-tuning em checkpoint escolhido, com rehearsal C1 | Métricas por época, checkpoint e previsões |
