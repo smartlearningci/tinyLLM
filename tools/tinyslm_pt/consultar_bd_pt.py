@@ -37,8 +37,10 @@ def listar_receitas(bd: Path, termo: str = "", origem: str = "", estado: str = "
         args.append(estado)
     where = " WHERE " + " AND ".join(conditions) if conditions else ""
     with closing(abrir(bd)) as db:
+        tem_alertas = db.execute("SELECT 1 FROM sqlite_master WHERE name='alertas'").fetchone()
+        contar_alertas = "(SELECT COUNT(*) FROM alertas a WHERE a.receita_id=receitas.id)" if tem_alertas else "0"
         rows = db.execute(
-            "SELECT id,titulo,origem,estado,duplicado_de FROM receitas" + where +
+            "SELECT id,titulo,origem,estado,duplicado_de," + contar_alertas + " AS avisos FROM receitas" + where +
             " ORDER BY titulo_chave,id LIMIT ? OFFSET ?", (*args, max(1, min(limite, 100)), max(0, offset)),
         ).fetchall()
         return [dict(row) for row in rows]
@@ -47,7 +49,7 @@ def listar_receitas(bd: Path, termo: str = "", origem: str = "", estado: str = "
 def obter_receita(bd: Path, receita_id: str) -> dict | None:
     with closing(abrir(bd)) as db:
         row = db.execute(
-            "SELECT id,titulo,origem,idioma,categoria,url,estado,duplicado_de FROM receitas WHERE id=?",
+            "SELECT id,titulo,origem,idioma,categoria,url,estado,duplicado_de,original_json FROM receitas WHERE id=?",
             (receita_id,),
         ).fetchone()
         if not row:
@@ -56,6 +58,10 @@ def obter_receita(bd: Path, receita_id: str) -> dict | None:
         dados["ingredientes"] = []
         dados["preparacao"] = []
         dados["extras"] = []
+        existe_alertas = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='alertas'").fetchone()
+        dados["alertas"] = ([dict(r) for r in db.execute(
+            "SELECT codigo,mensagem FROM alertas WHERE receita_id=? ORDER BY codigo", (receita_id,)
+        )] if existe_alertas else [])
         for parte in db.execute(
             "SELECT tipo,titulo_secao,texto FROM partes WHERE receita_id=? ORDER BY tipo,numero", (receita_id,)
         ):
@@ -66,10 +72,13 @@ def obter_receita(bd: Path, receita_id: str) -> dict | None:
 
 def resumo_bd(bd: Path) -> dict:
     with closing(abrir(bd)) as db:
+        existe_alertas = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='alertas'").fetchone()
         return {
             "total": db.execute("SELECT COUNT(*) FROM receitas").fetchone()[0],
             "origens": dict(db.execute("SELECT origem,COUNT(*) FROM receitas GROUP BY origem").fetchall()),
             "estados": dict(db.execute("SELECT estado,COUNT(*) FROM receitas GROUP BY estado").fetchall()),
+            "alertas": dict(db.execute("SELECT codigo,COUNT(*) FROM alertas GROUP BY codigo").fetchall()) if existe_alertas else {},
+            "a_rever": db.execute("SELECT COUNT(DISTINCT receita_id) FROM alertas").fetchone()[0] if existe_alertas else 0,
         }
 
 

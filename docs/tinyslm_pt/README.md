@@ -40,17 +40,60 @@ python tools/tinyslm_pt/criar_bd_pt.py \
 
 O código usa **apenas Python 3.10+**, sem instalar bibliotecas externas.
 
+## Normalização uniforme (nova versão)
+
+Todas as fontes usam a mesma estrutura: **título, origem, idioma, ingredientes,
+preparação ordenada, informação adicional, estado e avisos de revisão**.
+O importador cria textos legíveis para consulta e preserva a versão de origem
+em `receitas.original_json`.
+
+A normalização automática é conservadora: elimina prefixos redundantes (`1 -`,
+`2.`, `3)`), separa frases completas em passos numerados na interface, corrige
+espaços em unidades (`500g` → `500 g`) e expressões como `(+/- 5 minutos)` →
+`(aproximadamente 5 minutos)`. Não reescreve receitas, não converte
+automaticamente português do Brasil em português de Portugal e não inventa
+quantidades. As receitas continuam a precisar de auditoria culinária.
+
+A BD anterior **não é alterada**. Se já executaste a versão antiga, atualiza o
+GitHub e reconstrói numa nova SQLite usando os ficheiros fonte que já estão em
+`dados/fontes/` (não é preciso descarregar novamente):
+
+```bash
+git pull --ff-only
+python3 tools/tinyslm_pt/criar_bd_pt.py --saida dados/tiny_pt_normalizada.sqlite
+python3 tools/tinyslm_pt/ver_bd_pt.py --bd dados/tiny_pt_normalizada.sqlite
+```
+
+Abre **http://127.0.0.1:8767**. A página identifica receitas que têm avisos de
+qualidade. Por exemplo, a receita de *Almôndegas defumadas* envolve carvão em
+brasa, pelo que fica assinalada para revisão antes de a usar no treino. Este
+alerta é limitado aos padrões detetados pelo programa; a ausência de avisos
+**não significa** que a receita seja segura ou factualmente validada.
+
+Para exportar apenas as receitas estruturalmente completas, sem duplicados
+exatos e sem avisos identificados:
+
+```bash
+python3 tools/tinyslm_pt/exportar_bd_pt.py \
+  --bd dados/tiny_pt_normalizada.sqlite \
+  --excluir-alertas \
+  --saida dados/receitas_pt_para_revisao.jsonl
+```
+
+Esta exportação é para **revisão antes do treino**, não é garantia de qualidade.
+
 ## O que a base contém
 
 | Tabela | Informação |
 |---|---|
 | `receitas` | ID, título, origem, idioma, estado, possível duplicado, grupo de receitas, registo original |
 | `partes` | Ingredientes, preparação e informação adicional, em registos separados |
+| `alertas` | Problemas de qualidade/estrutura identificados automaticamente por receita |
 | `apoio` | 12 técnicas culinárias e 8 substituições genéricas, **não validadas para receitas concretas** |
 
 Estados: `completa` (pelo menos dois ingredientes e uma instrução); `parcial` (há informação mas faltam campos estruturados); `incompleta` (sem informação aproveitável nos campos analisados). **Completa não significa receita validada.**
 
-Os originais ficam guardados dentro de `receitas.original_json`, para recuperar mais informação sem perder texto. Não se inventam ingredientes nem quantidades. Duplicados exatos são assinalados, mas não eliminados; receitas com o mesmo título têm um `grupo` para ajudar a separar treino/teste. Ainda pode haver variantes e duplicados não identificados.
+Os originais ficam guardados dentro de `receitas.original_json`, para recuperar mais informação sem perder texto. O relatório inclui a versão da normalização e as contagens de alertas. Não se inventam ingredientes nem quantidades. Duplicados exatos são assinalados, mas não eliminados; receitas com o mesmo título têm um `grupo` para ajudar a separar treino/teste. Ainda pode haver variantes e duplicados não identificados.
 
 ### Fontes
 

@@ -22,7 +22,7 @@ label{display:block;font-size:.85rem;color:#555}input,select,button{font:inherit
 article{background:white;border:1px solid #e0e0e0;border-radius:7px;padding:.7rem 1rem;
  margin:.5rem 0}.pill{display:inline-block;border:1px solid #ccc;border-radius:99px;
  font-size:.75rem;padding:.1rem .5rem;color:#555;margin-left:.3rem}
-li{margin:.35rem 0}ul,ol{padding-left:1.6rem}.warning{color:#8b4304}footer{margin:2rem 0;color:#777;font-size:.85rem}
+li{margin:.35rem 0}ul,ol{padding-left:1.6rem}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.85rem}.warning{color:#8b4304}footer{margin:2rem 0;color:#777;font-size:.85rem}
 """
 
 
@@ -56,7 +56,8 @@ def inicio(bd: Path, params: dict[str, list[str]]) -> str:
                                               ("parcial", "Parcial"), ("incompleta", "Incompleta")))
     content = ("<h1>Pesquisar receitas</h1>"
                f"<p class='muted'>{info['total']:,} registos · "
-               f"{info['estados'].get('completa', 0):,} com ingredientes e preparação</p>"
+               f"{info['estados'].get('completa', 0):,} com ingredientes e preparação · "
+               f"{info['a_rever']:,} registos com avisos</p>"
                "<form method='get' action='/'><div class='filters'>"
                f"<div><label>Nome da receita</label><input name='q' value='{e(q)}' placeholder='Ex.: bolo de cenoura'></div>"
                f"<div><label>Origem</label><select name='origem'>{options_origem}</select></div>"
@@ -66,9 +67,10 @@ def inicio(bd: Path, params: dict[str, list[str]]) -> str:
                f"<h2>Resultados</h2><p class='muted'>{len(resultados)} nesta página</p>")
     for r in resultados:
         duplicado = '<span class="pill">possível duplicado</span>' if r['duplicado_de'] else ''
+        rever = '<span class="pill warning">rever</span>' if r['avisos'] else ''
         content += (f"<article><a href='/?receita={quote(r['id'])}'><strong>{e(r['titulo'])}</strong></a>"
                     f"<span class='pill'>{e(r['origem'])}</span><span class='pill'>{e(r['estado'])}</span>"
-                    f"{duplicado}</article>")
+                    f"{duplicado}{rever}</article>")
     if not resultados:
         content += "<p>Nenhuma receita encontrada.</p>"
     if len(resultados) == 30:
@@ -90,6 +92,11 @@ def detalhe(bd: Path, rid: str) -> str:
                f"<p class='muted'>ID: <code>{e(reg['id'])}</code></p>")
     if reg['duplicado_de']:
         content += "<p class='warning'>Este registo poderá ser duplicado exato de outro.</p>"
+    if reg["alertas"]:
+        content += "<section class='panel'><h2>Avisos de revisão</h2><ul>"
+        for aviso in reg["alertas"]:
+            content += f"<li class='warning'>{e(aviso['mensagem'])}</li>"
+        content += "</ul></section>"
     if reg['estado'] != 'completa':
         content += "<p class='warning'>A receita não tem todos os campos estruturados. Consulta também a informação adicional.</p>"
     if reg['url'].startswith(('https://', 'http://')):
@@ -107,6 +114,8 @@ def detalhe(bd: Path, rid: str) -> str:
                 content += f"<li>{sec}{e(x['texto'])}</li>"
             content += f"</{tag}>"
         content += "</section>"
+    content += ("<details class='panel'><summary>Ver texto original da fonte</summary>"
+                f"<pre>{e(reg['original_json'])}</pre></details>")
     return layout(reg['titulo'], content)
 
 

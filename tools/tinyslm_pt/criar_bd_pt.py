@@ -15,6 +15,8 @@ import unicodedata
 import urllib.request
 from pathlib import Path
 
+from normalizar_receitas import VERSAO, normalizar_ingrediente, dividir_preparacao, normalizar_extras, alertas_qualidade
+
 FONTES = {
     "wikilivros": "https://raw.githubusercontent.com/denisevitoriano/tech_challenge_fase_04/main/data/processed/receitas.jsonl",
     "afrodite": "https://raw.githubusercontent.com/adrianosferreira/afrodite.json/master/afrodite.json",
@@ -70,7 +72,8 @@ def extrair_wikilivros(caminho: Path):
                 continue
             reg = json.loads(linha)
             titulo = limpo(reg.get("titulo"))
-            ing, prep = itens(reg.get("ingredientes")), itens(reg.get("preparo"))
+            ing = [v for x in itens(reg.get("ingredientes")) if (v := normalizar_ingrediente(x))]
+            prep = dividir_preparacao(itens(reg.get("preparo")))
             url = limpo(reg.get("fonte_url"))
             rid = identificador("wiki", f"{numero}|{url}|{titulo}")
             yield rid, "wikilivros", "pt", titulo, limpo(reg.get("categoria")), url, ing, prep, [], reg
@@ -89,11 +92,11 @@ def extrair_afrodite(caminho: Path):
             textos = itens(parte.get("conteudo"))
             k = chave(nome)
             if "ingrediente" in k:
-                ing.extend(textos)
+                ing.extend(v for x in textos if (v := normalizar_ingrediente(x)))
             elif "preparo" in k or "preparacao" in k or "modo de fazer" in k:
-                prep.extend(textos)
+                prep.extend(dividir_preparacao(textos))
             else:
-                extras.extend((nome, texto) for texto in textos)
+                extras.extend((nome, normalizar_extras(texto)) for texto in textos)
         oid = (reg.get("_id") or {}).get("$oid")
         rid = "afro:" + str(oid) if oid else identificador("afro", f"{numero}|{titulo}")
         yield rid, "afrodite", "pt-BR", titulo, "", "", ing, prep, extras, reg
@@ -123,6 +126,14 @@ CREATE TABLE partes (
     PRIMARY KEY (receita_id, tipo, numero),
     FOREIGN KEY (receita_id) REFERENCES receitas(id)
 );
+CREATE TABLE alertas (
+    receita_id TEXT NOT NULL,
+    codigo TEXT NOT NULL,
+    mensagem TEXT NOT NULL,
+    PRIMARY KEY(receita_id, codigo),
+    FOREIGN KEY (receita_id) REFERENCES receitas(id)
+);
+CREATE INDEX idx_alertas ON alertas(codigo);
 CREATE TABLE apoio (
     tipo TEXT NOT NULL,
     termo TEXT NOT NULL,
@@ -147,7 +158,7 @@ def criar(destino: Path, fontes: dict[str, Path], apoio_file: Path) -> dict:
     db = sqlite3.connect(destino)
     resumo = {
         "total": 0, "por_origem": {}, "estados": {"completa": 0, "parcial": 0, "incompleta": 0},
-        "duplicados_exatos": 0, "apoio": {},
+        "duplicados_exatos": 0, "apoio": {}, "normalizacao": VERSAO, "alertas": {},
         "nota": "Completa significa apenas >=2 ingredientes e >=1 instrucao; nao e validacao culinaria.",
     }
     vistos: dict[str, str] = {}
@@ -178,6 +189,9 @@ def criar(destino: Path, fontes: dict[str, Path], apoio_file: Path) -> dict:
                     rid, src, idioma, titulo, chave(titulo), categoria, url, estado, duplicado_de,
                     grupo, json.dumps(original, ensure_ascii=False),
                 ))
+                for codigo, mensagem in alertas_qualidade(ing, prep):
+                    db.execute("INSERT INTO alertas VALUES(?,?,?)", (rid, codigo, mensagem))
+                    resumo["alertas"][codigo] = resumo["alertas"].get(codigo, 0) + 1
                 for tipo, valores in (
                     ("ingredientes", [(None, v) for v in ing]),
                     ("preparacao", [(None, v) for v in prep]),

@@ -92,6 +92,49 @@ class TestBasePortugues(unittest.TestCase):
         self.assertIn("possível duplicado", inicio(self.db, {"q": ["Bolo de açúcar"]}))
         self.assertIn("class='warning'", apoio(self.db))
 
+    def test_normalizacao_real_almondengas_e_alerta(self):
+        """Exemplo extraído da fonte Afrodite: números duplicados, frases e carvão."""
+        fonte = self.dir / "carvao.json"
+        fonte.write_text(json.dumps([{
+            "_id": {"$oid": "exemplo-carvao"}, "nome": "Almôndegas defumadas",
+            "secao": [
+                {"nome": " Ingredientes", "conteudo": ["500g de carne moída", "50g de queijo provolone ralado"]},
+                {"nome": " Modo de Preparo", "conteudo": [
+                    "1 - Coloque na chama do fogão um pedaço de carvão e deixe esquentando até ficar em brasa.",
+                    "2 - Numa tigela, coloque 500 g de carne moída e misture. Faça bolinhas. Reserve.",
+                    "3 - Numa frigideira doure as bolinhas (+/- 5 minutos).",
+                    "4 - Retire o carvão em brasa. Tampe a frigideira. Desligue o fogo e sirva."
+                ]}
+            ]
+        }], ensure_ascii=False), encoding="utf-8")
+        saida = self.dir / "normalizada.sqlite"
+        rel = criar(saida, {"afrodite": fonte}, Path(__file__).with_name("apoio.json"))
+        self.assertEqual(rel["total"], 1)
+        reg = obter_receita(saida, "afro:exemplo-carvao")
+        self.assertEqual(len(reg["preparacao"]), 8)
+        self.assertEqual(reg["ingredientes"][0]["texto"], "500 g de carne moída")
+        self.assertEqual(reg["preparacao"][0]["texto"],
+                         "Coloque na chama do fogão um pedaço de carvão e deixe esquentando até ficar em brasa.")
+        self.assertTrue(any("aproximadamente 5 minutos" in x["texto"] for x in reg["preparacao"]))
+        self.assertEqual(reg["alertas"][0]["codigo"], "REVER_CARVAO_EM_BRASA")
+        self.assertIn("1 - Coloque", sqlite3.connect(saida).execute(
+            "SELECT original_json FROM receitas WHERE id='afro:exemplo-carvao'"
+        ).fetchone()[0])
+        self.assertNotIn("<li>1 - Coloque", detalhe(saida, reg["id"]))
+        self.assertIn("Ver texto original da fonte", detalhe(saida, reg["id"]))
+        self.assertIn("rever", inicio(saida, {"q": ["Almôndegas"]}))
+        destino = self.dir / "sem_alertas.jsonl"
+        self.assertEqual(exportar(saida, destino, excluir_alertas=True), 0)
+
+    def test_normalizacao_nao_altera_quantidades(self):
+        from normalizar_receitas import normalizar_passo, normalizar_ingrediente, dividir_preparacao
+        self.assertEqual(normalizar_ingrediente("• 1/2kg de farinha"), "1/2 kg de farinha")
+        self.assertEqual(normalizar_passo("1 - Juntar 250g de açúcar."), "Juntar 250 g de açúcar.")
+        self.assertEqual(normalizar_passo("2) Ferver 10 minutos."), "Ferver 10 minutos.")
+        self.assertEqual(normalizar_passo("500 g de açúcar"), "500 g de açúcar")
+        self.assertEqual(dividir_preparacao(["1 - Misture o preparado. Reserve."]),
+                         ["Misture o preparado.", "Reserve."])
+
 
 if __name__ == "__main__":
     unittest.main()
