@@ -65,9 +65,10 @@ def inicio(bd: Path, params: dict[str, list[str]]) -> str:
                "<p><a href='/apoio'>Consultar técnicas e substituições</a></p>"
                f"<h2>Resultados</h2><p class='muted'>{len(resultados)} nesta página</p>")
     for r in resultados:
+        duplicado = '<span class="pill">possível duplicado</span>' if r['duplicado_de'] else ''
         content += (f"<article><a href='/?receita={quote(r['id'])}'><strong>{e(r['titulo'])}</strong></a>"
                     f"<span class='pill'>{e(r['origem'])}</span><span class='pill'>{e(r['estado'])}</span>"
-                    f"{'<span class=\"pill\">possível duplicado</span>' if r['duplicado_de'] else ''}</article>")
+                    f"{duplicado}</article>")
     if not resultados:
         content += "<p>Nenhuma receita encontrada.</p>"
     if len(resultados) == 30:
@@ -118,8 +119,9 @@ def apoio(bd: Path) -> str:
                 content += "<p class='warning'>São ideias condicionais, NÃO substituições validadas para receitas concretas.</p>"
             for r in conn.execute("SELECT * FROM apoio WHERE tipo=? ORDER BY termo", (tipo,)):
                 destino = f" → {e(r['equivalente'])}" if r['equivalente'] else ""
+                restricao = f"<p class='warning'>{e(r['restricao'])}</p>" if r['restricao'] else ""
                 content += (f"<article><strong>{e(r['termo'])}{destino}</strong><p>{e(r['explicacao'])}</p>"
-                            f"{'<p class=\"warning\">'+e(r['restricao'])+'</p>' if r['restricao'] else ''}</article>")
+                            f"{restricao}</article>")
     return layout("Técnicas e alternativas", content)
 
 
