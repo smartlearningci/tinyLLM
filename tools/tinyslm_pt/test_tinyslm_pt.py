@@ -8,7 +8,7 @@ from pathlib import Path
 from criar_bd_pt import criar
 from consultar_bd_pt import listar_receitas, obter_receita, procurar, resumo_bd
 from exportar_bd_pt import exportar
-from ver_bd_pt import detalhe, inicio
+from ver_bd_pt import detalhe, inicio, apoio
 
 
 class TestBasePortugues(unittest.TestCase):
@@ -89,6 +89,8 @@ class TestBasePortugues(unittest.TestCase):
         page = detalhe(self.db, reg)
         self.assertIn("&lt;script&gt;", page)
         self.assertNotIn("<script>alert(1)</script>", page)
+        self.assertIn("possível duplicado", inicio(self.db, {"q": ["Bolo de açúcar"]}))
+        self.assertIn("class='warning'", apoio(self.db))
 
 
 if __name__ == "__main__":
