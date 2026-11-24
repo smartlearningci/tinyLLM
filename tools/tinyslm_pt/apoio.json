@@ -1,0 +1,26 @@
+{
+  "tecnica": [
+    {"termo":"refogar","explicacao":"Cozinhar um ingrediente com um pouco de gordura, em lume moderado, mexendo para não queimar."},
+    {"termo":"saltear","explicacao":"Cozinhar rapidamente numa frigideira quente com pouca gordura, mexendo ou virando os alimentos."},
+    {"termo":"cozer","explicacao":"Cozinhar com calor; o método concreto pode ser água, vapor ou forno conforme a receita."},
+    {"termo":"ferver","explicacao":"Aquecer um líquido até formar bolhas contínuas à superfície."},
+    {"termo":"reduzir","explicacao":"Deixar um líquido evaporar parcialmente para ficar mais concentrado ou espesso."},
+    {"termo":"caramelizar","explicacao":"Aquecer açúcar até derreter e adquirir cor dourada; exige atenção porque o caramelo queima e provoca queimaduras graves."},
+    {"termo":"peneirar","explicacao":"Passar farinha ou outro pó por uma peneira para desfazer grumos."},
+    {"termo":"envolver","explicacao":"Misturar delicadamente, com movimentos de baixo para cima, sem bater com força."},
+    {"termo":"gratinar","explicacao":"Levar ao forno com calor na parte superior para dourar a superfície."},
+    {"termo":"escalfar","explicacao":"Cozinhar suavemente num líquido quente, normalmente sem fervura forte."},
+    {"termo":"marinar","explicacao":"Deixar um alimento em contacto com temperos ou líquidos durante algum tempo, respeitando a refrigeração necessária."},
+    {"termo":"banho-maria","explicacao":"Aquecer um recipiente através da água quente de outro recipiente, evitando contacto direto com a fonte de calor."}
+  ],
+  "alternativa": [
+    {"termo":"manteiga","equivalente":"azeite","explicacao":"Pode funcionar nalguns pratos salgados.","restricao":"Não assumir equivalência em bolos ou massas; alterar a gordura modifica a textura."},
+    {"termo":"leite","equivalente":"bebida vegetal","explicacao":"Pode funcionar em determinadas preparações.","restricao":"Sabor e textura podem mudar; confirmar receita e alergénios da bebida escolhida."},
+    {"termo":"natas","equivalente":"iogurte natural","explicacao":"Pode resultar em alguns molhos frios.","restricao":"O iogurte é mais ácido e pode talhar com calor; não usar como substituição automática."},
+    {"termo":"coentros","equivalente":"salsa","explicacao":"Pode substituir a erva aromática em algumas preparações.","restricao":"O sabor final será diferente; não é equivalente em todas as receitas."},
+    {"termo":"salsa","equivalente":"coentros","explicacao":"Pode dar uma alternativa aromática nalguns pratos.","restricao":"O sabor altera-se e a troca não é adequada em todas as receitas."},
+    {"termo":"óleo vegetal","equivalente":"azeite","explicacao":"Em certas preparações salgadas pode ser usado no lugar de óleo vegetal.","restricao":"Verificar temperatura, intensidade do sabor e receita."},
+    {"termo":"açúcar","equivalente":"mel","explicacao":"O mel pode adoçar algumas preparações.","restricao":"Não é substituição direta em todas as receitas; muda humidade, cor e sabor. Não oferecer a bebés menores de 12 meses."},
+    {"termo":"farinha de trigo","equivalente":"mistura sem glúten própria para a receita","explicacao":"Há misturas adequadas para algumas receitas.","restricao":"Não presumir troca 1:1; validar rótulos e contaminação cruzada em caso de doença celíaca."}
+  ]
+}

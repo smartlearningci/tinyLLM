@@ -57,3 +57,9 @@ python economico.py --model gpt-6-luna --reasoning-effort low --limit 200 --batc
 ```
 
 Por omissão, o modo económico usa 20 pedidos por execução e lotes de 2. `--limit` permite até 200 pedidos por execução, respeitando a paragem preventiva após falhas consecutivas. Consulta [o guia de geração económica](docs/GERACAO_ECONOMICA.md) para erros, tokens e recuperação. Este modo não modifica a geração via chat.
+
+## Base culinária em português (PT + BR)
+
+Preparação de receitas, técnicas e alternativas para o TinySLM, com consulta por navegador local. O código usa apenas Python padrão e não substitui os dados anteriores.
+
+Guia: [**Criar e consultar a base portuguesa**](docs/tinyslm_pt/README.md).
