@@ -40,12 +40,18 @@ def exportar(bd: Path, destino: Path, completas: bool = True, incluir_duplicados
                 item["ingredientes"] = []
                 item["preparacao"] = []
                 item["extras"] = []
+                item["grupos"] = []  # Subtítulos e posição; passos mantêm-se listas simples.
+                ultima_secao = {}
                 for p in conn.execute("SELECT tipo,titulo_secao,texto FROM partes "
                                       "WHERE receita_id=? ORDER BY tipo,numero", (reg["id"],)):
                     if p["tipo"] == "extras":
                         item["extras"].append({"secao": p["titulo_secao"], "texto": p["texto"]})
                     else:
-                        item[p["tipo"]].append(p["texto"])
+                        tipo, secao = p["tipo"], p["titulo_secao"]
+                        item[tipo].append(p["texto"])
+                        if secao and secao != ultima_secao.get(tipo):
+                            item["grupos"].append({"tipo": tipo, "inicio": len(item[tipo]), "titulo": secao})
+                        ultima_secao[tipo] = secao
                 out.write(json.dumps(item, ensure_ascii=False) + "\n")
                 count += 1
         temp.replace(destino)

@@ -160,3 +160,57 @@ python -m unittest discover -s tools/tinyslm_pt -p 'test_*.py' -v
 ## Próximos passos do TinySLM
 
 Antes do treino massivo: rever a qualidade das receitas, enriquecer uma seleção de técnicas/substituições com relações efetivamente válidas para cada receita, criar exemplos em PT-PT e PT-BR no formato mínimo **pergunta → chamada simples → dado → resposta** e medir o tokenizer real para assegurar os **512 tokens**. A ferramenta atual de consulta **não está ligada ao LLM** e ainda não faz recuperação inteligente de excertos longos.
+
+## Normalização de subtítulos colados aos passos — versão 1.2
+
+Algumas receitas brasileiras têm subtítulos e números colados, como
+`Berinjela1 -`, `Maionese2 -`, `Kafta4 -` e `Montagem5 -`. A versão 1.2 separa
+**subtítulo**, **número original** e **instrução**. A numeração original é removida
+porque o navegador numera os passos automaticamente em sequência.
+
+Exemplo da receita `"Hamburdog" do Ogro Jimmy` (Afrodite):
+
+- Ingredientes concatenados sob `Berinjela`, `Maionese` e `Kafta` são divididos
+  em itens quando o nome do grupo também está na preparação.
+- A preparação fica com 13 passos curtos, agrupados por subtítulo; a numeração
+  continua entre grupos, sem recomeçar em 1.
+- A SQLite guarda o grupo no campo `partes.titulo_secao`; o JSONL exportado
+  mantém `ingredientes` e `preparacao` como listas de texto e acrescenta `grupos`
+  com o subtítulo e a posição inicial. Esta informação é útil na futura
+  recuperação por ferramentas, sem exigir prompts grandes.
+- O registo original continua guardado, sem alterações, em
+  `receitas.original_json`.
+
+Esta normalização é **conservadora**: não reescreve livremente as instruções,
+não inventa quantidades e não garante que todas as receitas ficaram corretas.
+Conteúdos que continuem concatenados e não sejam reconhecidos são assinalados
+para revisão, em vez de divididos por suposição.
+
+### Atualizar uma BD que já existe
+
+`git pull` só atualiza os programas; não modifica bases SQLite existentes. Para
+criar a versão atual sem apagar a anterior:
+
+```bash
+git pull --ff-only
+python3 tools/tinyslm_pt/criar_bd_pt.py --saida dados/tiny_pt_normalizada_v12.sqlite
+python3 tools/tinyslm_pt/ver_bd_pt.py --bd dados/tiny_pt_normalizada_v12.sqlite
+```
+
+Abrir `http://127.0.0.1:8767` e procurar `Hamburdog`. Se o servidor anterior
+estiver ativo, parar com `Ctrl+C` primeiro. As fontes já descarregadas são
+reutilizadas.
+
+Para usar esta versão na exportação:
+
+```bash
+python3 tools/tinyslm_pt/exportar_bd_pt.py \
+  --bd dados/tiny_pt_normalizada_v12.sqlite \
+  --saida dados/receitas_pt_v12.jsonl
+```
+
+Executar os testes sem descarregar receitas:
+
+```bash
+python3 -m unittest discover -s tools/tinyslm_pt -p 'test_*.py' -v
+```

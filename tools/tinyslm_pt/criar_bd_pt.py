@@ -15,7 +15,8 @@ import unicodedata
 import urllib.request
 from pathlib import Path
 
-from normalizar_receitas import VERSAO, normalizar_ingrediente, dividir_preparacao, normalizar_extras, alertas_qualidade
+from normalizar_receitas import (VERSAO, dividir_ingredientes_com_seccoes,
+    dividir_preparacao_com_seccoes, normalizar_extras, alertas_qualidade)
 
 FONTES = {
     "wikilivros": "https://raw.githubusercontent.com/denisevitoriano/tech_challenge_fase_04/main/data/processed/receitas.jsonl",
@@ -72,8 +73,9 @@ def extrair_wikilivros(caminho: Path):
                 continue
             reg = json.loads(linha)
             titulo = limpo(reg.get("titulo"))
-            ing = [v for x in itens(reg.get("ingredientes")) if (v := normalizar_ingrediente(x))]
-            prep = dividir_preparacao(itens(reg.get("preparo")))
+            prep = dividir_preparacao_com_seccoes(itens(reg.get("preparo")))
+            grupos = {sec for sec, _ in prep if sec}
+            ing = dividir_ingredientes_com_seccoes(itens(reg.get("ingredientes")), grupos)
             url = limpo(reg.get("fonte_url"))
             rid = identificador("wiki", f"{numero}|{url}|{titulo}")
             yield rid, "wikilivros", "pt", titulo, limpo(reg.get("categoria")), url, ing, prep, [], reg
@@ -86,17 +88,20 @@ def extrair_afrodite(caminho: Path):
         raise ValueError("O ficheiro Afrodite nao contem uma lista JSON.")
     for numero, reg in enumerate(dados, 1):
         titulo = limpo(reg.get("nome"))
-        ing, prep, extras = [], [], []
+        ingredientes_orig, preparacao_orig, extras = [], [], []
         for parte in reg.get("secao") or []:
             nome = limpo(parte.get("nome"))
             textos = itens(parte.get("conteudo"))
             k = chave(nome)
             if "ingrediente" in k:
-                ing.extend(v for x in textos if (v := normalizar_ingrediente(x)))
+                ingredientes_orig.extend(textos)
             elif "preparo" in k or "preparacao" in k or "modo de fazer" in k:
-                prep.extend(dividir_preparacao(textos))
+                preparacao_orig.extend(textos)
             else:
                 extras.extend((nome, normalizar_extras(texto)) for texto in textos)
+        prep = dividir_preparacao_com_seccoes(preparacao_orig)
+        grupos = {sec for sec, _ in prep if sec}
+        ing = dividir_ingredientes_com_seccoes(ingredientes_orig, grupos)
         oid = (reg.get("_id") or {}).get("$oid")
         rid = "afro:" + str(oid) if oid else identificador("afro", f"{numero}|{titulo}")
         yield rid, "afrodite", "pt-BR", titulo, "", "", ing, prep, extras, reg
@@ -171,6 +176,8 @@ def criar(destino: Path, fontes: dict[str, Path], apoio_file: Path) -> dict:
             gerador = extrair_wikilivros(ficheiro) if origem == "wikilivros" else extrair_afrodite(ficheiro)
             for rid, src, idioma, titulo, categoria, url, ing, prep, extras, original in gerador:
                 n += 1
+                ing_textos = [texto for _, texto in ing]
+                prep_textos = [texto for _, texto in prep]
                 if len(ing) >= 2 and len(prep) >= 1:
                     estado = "completa"
                 elif ing or prep or extras:
@@ -179,7 +186,7 @@ def criar(destino: Path, fontes: dict[str, Path], apoio_file: Path) -> dict:
                     estado = "incompleta"
                 grupo = identificador("grupo", chave(titulo))
                 # Apenas duplicados textualmente identicos; nao elimina variantes.
-                assinatura = identificador("conteudo", chave(titulo) + "|" + "\n".join(chave(v) for v in ing + prep + [v for _, v in extras]))
+                assinatura = identificador("conteudo", chave(titulo) + "|" + "\n".join(chave(v) for v in ing_textos + prep_textos + [v for _, v in extras]))
                 duplicado_de = vistos.get(assinatura)
                 if duplicado_de:
                     resumo["duplicados_exatos"] += 1
@@ -189,12 +196,12 @@ def criar(destino: Path, fontes: dict[str, Path], apoio_file: Path) -> dict:
                     rid, src, idioma, titulo, chave(titulo), categoria, url, estado, duplicado_de,
                     grupo, json.dumps(original, ensure_ascii=False),
                 ))
-                for codigo, mensagem in alertas_qualidade(ing, prep):
+                for codigo, mensagem in alertas_qualidade(ing_textos, prep_textos):
                     db.execute("INSERT INTO alertas VALUES(?,?,?)", (rid, codigo, mensagem))
                     resumo["alertas"][codigo] = resumo["alertas"].get(codigo, 0) + 1
                 for tipo, valores in (
-                    ("ingredientes", [(None, v) for v in ing]),
-                    ("preparacao", [(None, v) for v in prep]),
+                    ("ingredientes", ing),
+                    ("preparacao", prep),
                     ("extras", extras),
                 ):
                     db.executemany("INSERT INTO partes VALUES(?,?,?,?,?)", (

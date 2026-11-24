@@ -108,11 +108,22 @@ def detalhe(bd: Path, rid: str) -> str:
         if not reg[tipo]:
             content += "<p class='muted'>Não há dados estruturados nesta secção.</p>"
         else:
-            content += f"<{tag}>"
-            for x in reg[tipo]:
-                sec = f"<strong>{e(x['secao'])}:</strong> " if x['secao'] else ""
-                content += f"<li>{sec}{e(x['texto'])}</li>"
-            content += f"</{tag}>"
+            secao_anterior = None
+            lista_aberta = False
+            for numero, x in enumerate(reg[tipo], 1):
+                secao = x['secao'] or ''
+                if not lista_aberta or secao != secao_anterior:
+                    if lista_aberta:
+                        content += f"</{tag}>"
+                    if secao:
+                        content += f"<h3>{e(secao)}</h3>"
+                    inicio_lista = f" start='{numero}'" if tipo == 'preparacao' else ''
+                    content += f"<{tag}{inicio_lista}>"
+                    lista_aberta = True
+                    secao_anterior = secao
+                content += f"<li>{e(x['texto'])}</li>"
+            if lista_aberta:
+                content += f"</{tag}>"
         content += "</section>"
     content += ("<details class='panel'><summary>Ver texto original da fonte</summary>"
                 f"<pre>{e(reg['original_json'])}</pre></details>")
