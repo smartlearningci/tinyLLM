@@ -63,3 +63,7 @@ Por omissão, o modo económico usa 20 pedidos por execução e lotes de 2. `--l
 Preparação de receitas, técnicas e alternativas para o TinySLM, com consulta por navegador local. O código usa apenas Python padrão e não substitui os dados anteriores.
 
 Guia: [**Criar e consultar a base portuguesa**](docs/tinyslm_pt/README.md).
+
+## Corpus base exclusivamente PT-PT
+
+O pipeline de construção do dataset para o novo pré-treino em português de Portugal está em [tools/corpus_ptpt/README.md](tools/corpus_ptpt/README.md). O corpus é gerado localmente e não é publicado no GitHub.
