@@ -100,6 +100,11 @@ def candidatos_linhas(rows, dataset: str, max_rows=0):
 
 
 def recolher(dataset, saida: Path, max_rows: int = 0, rows=None):
+    """Publica uma recolha apenas quando ha historias validas.
+
+    Escreve primeiro um .partial para que uma falha de rede, filtragem ou
+    interrupcao nao deixe um gzip vazio ou incompleto com o nome final.
+    """
     if saida.exists():
         raise FileExistsError(saida)
     if rows is None:
@@ -110,8 +115,12 @@ def recolher(dataset, saida: Path, max_rows: int = 0, rows=None):
         rows = load_dataset(DATASETS[dataset][0], split='train', streaming=True)
     vistos = set()
     r = Counter()
+    def contar_origem():
+        for row in rows:
+            r['linhas_origem'] += 1
+            yield row
     def it():
-        for reg in candidatos_linhas(rows, dataset, max_rows):
+        for reg in candidatos_linhas(contar_origem(), dataset, max_rows):
             r['lidos_validos'] += 1
             if reg['sha_original'] in vistos:
                 r['duplicados'] += 1
@@ -119,7 +128,23 @@ def recolher(dataset, saida: Path, max_rows: int = 0, rows=None):
             vistos.add(reg['sha_original'])
             r['recolhidos'] += 1
             yield reg
-    inserir_arquivo(saida, it())
+    parcial = saida.with_name(saida.name + '.partial')
+    if parcial.exists():
+        raise FileExistsError('Existe uma recolha parcial anterior: ' + str(parcial))
+    try:
+        inserir_arquivo(parcial, it())
+        if not r['recolhidos']:
+            raise RuntimeError(
+                'Nenhuma historia recolhida de ' + DATASETS[dataset][0]
+                + ': linhas_origem=' + str(r['linhas_origem'])
+                + ', textos_validos=' + str(r['lidos_validos'])
+                + '. Verifica as primeiras linhas e o filtro de comprimento.'
+            )
+        parcial.rename(saida)
+    except BaseException:
+        parcial.unlink(missing_ok=True)
+        raise
+    r['filtradas_por_formato_ou_comprimento'] = r['linhas_origem'] - r['lidos_validos']
     return dict(r)
 
 

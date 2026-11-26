@@ -99,6 +99,14 @@ class TestHistorias(unittest.TestCase):
         self.assertEqual(r['duplicados'],1)
         self.assertEqual(len(list(ler_linhas(out))),1)
 
+    def test_recolha_vazia_nao_cria_ficheiro_final(self):
+        for rows in ([], [{'texto': 'Texto muito curto.'}]):
+            out = self.p / 'sem_historias.jsonl.gz'
+            with self.assertRaisesRegex(RuntimeError, 'Nenhuma historia recolhida'):
+                recolher('historinhas', out, rows=rows)
+            self.assertFalse(out.exists())
+            self.assertFalse(out.with_name(out.name + '.partial').exists())
+
     def test_reescrita_auditoria_review_e_publicacao(self):
         raw=self.p/'raw.gz'
         self.assertEqual(recolher('historinhas',raw,rows=[{'texto':BR}])['recolhidos'],1)
