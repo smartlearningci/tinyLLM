@@ -24,12 +24,20 @@
 
 ## 0. Instalar e verificar o estado
 
-Na raiz do repositório:
+**Criar primeiro um ambiente Conda isolado** (não executar `pip install` no `(base)`: `datasets` e `tokenizers` modernos podem entrar em conflito com `transformers` antigos e `petals`). Na raiz do repositório:
 
 ```bash
-python3 -m pip install -r tools/corpus_ptpt/requirements-corpus.txt
-python3 -m unittest discover -s tools/corpus_ptpt -p 'test_*.py' -v
-python3 tools/corpus_ptpt/pipeline_ptpt.py estado
+conda create -n tinyslm-ptpt python=3.11 -y
+conda activate tinyslm-ptpt
+python -m pip install -r tools/corpus_ptpt/requirements-corpus.txt
+python -m pip check
+```
+
+Depois, verificar os testes e o estado:
+
+```bash
+python -m unittest discover -s tools/corpus_ptpt -p 'test_*.py' -v
+python tools/corpus_ptpt/pipeline_ptpt.py estado
 ```
 
 No Windows, substituir `python3` por `python` se necessário. As **únicas dependências obrigatórias para executar os testes** são as da biblioteca padrão do Python.
