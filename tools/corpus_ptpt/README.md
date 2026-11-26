@@ -1,26 +1,39 @@
-# TinySLM-PTPT — preparar o corpus geral e a compreensão de histórias
+# TinySLM-PTPT — corpus geral, histórias simples e compreensão
 
-Objetivo: construir um dataset de pré-treino **português de Portugal** sem misturar o corpus culinário nesta fase. Não descarrega nem publica automaticamente corpora no GitHub; os dados são gerados em `dados/corpus_ptpt/`, que está ignorado pelo Git.
+Objetivo: construir dois conjuntos de pré-treino **em português de Portugal** — geral e histórias simples — e um terceiro de compreensão supervisionada, sem misturar o corpus culinário nesta fase. Não descarrega nem publica automaticamente corpora no GitHub; os dados são gerados em `dados/corpus_ptpt/`, que está ignorado pelo Git.
 
 
-## Composição fechada — PT-PT v1.0
+## Composição fechada — PT-PT v1.1 (três componentes)
 
-O corpus oficial para pré-treino tem uma **meta de 400 milhões de tokens**, medida apenas depois de treinar o tokenizer. A composição, os limites, as exclusões e os critérios de aceitação estão fixados no ficheiro [`corpus_v1.json`](corpus_v1.json). Esta é uma **decisão de composição**, não um relatório de dados já descarregados. As quotas são metas e tetos, **não são impostas automaticamente pelos scripts atuais**.
+A definição oficial está em [`corpus_v1.json`](corpus_v1.json). **São metas e não dados já recolhidos**, e os scripts atuais ainda não aplicam automaticamente todas as quotas.
 
-| Fonte | Quota prevista | Estado |
+### 1 — Corpus geral: 400 milhões de tokens PT-PT
+
+| Fonte | Quota indicativa | Estado da recolha |
 |---|---:|---|
-| Bagaço2 PT-PT | 200 M tokens | recolha streaming implementada |
-| CETEMPúblico 1.7 | 150 M tokens | conversão do `.gz` implementada |
-| ParlaMint-PT | até 20 M tokens | importação de TXT, extração de origem pendente |
-| ELTeC-por + Adamastor | até 30 M tokens, em conjunto | extração e seleção de obras pendentes |
+| Bagaço2 PT-PT | 200 M tokens | streaming implementado |
+| CETEMPúblico 1.7 | 150 M tokens | leitura `.gz` implementada |
+| ParlaMint-PT | até 20 M tokens | conversão de origem pendente |
+| ELTeC-por + Adamastor | até 30 M tokens no conjunto | extração/seleção pendentes |
 
-**FairytaleQA-ptPT não entra no pré-treino geral v1**. Reservamo-lo para compreensão e avaliação (232 histórias de treino, 23 de validação e 23 de teste), sem repetir excertos por pergunta. Não incluir os datasets PT-BR nem traduções automáticas de histórias nesta versão.
+### 2 — Histórias simples adaptadas: 100.000 histórias PT-PT
+
+Usar [`DominuZ/TinyStories-pt-BR`](https://huggingface.co/datasets/DominuZ/TinyStories-pt-BR) como fonte principal e [`Boakpe/historinhas`](https://huggingface.co/datasets/Boakpe/historinhas) como complemento. **Não usar texto PT-BR diretamente**. Adaptar à linguagem natural de Portugal e validar, preservar o original e eliminar repetições e histórias quase iguais. Meta de 100.000 histórias **aceites**; previsão de 25–35 M tokens, a medir depois da tokenização.
+
+Este corpus de histórias **ainda não está construído**. O pipeline de conversão e auditoria ainda tem de ser desenvolvido. Não se trata de tradução palavra a palavra ou da criação massiva de histórias novas sem controlo de qualidade. Treinar como fase narrativa posterior ao corpus geral.
+
+### 3 — Compreensão e conversação: FairytaleQA PT-PT
+
+O dataset [`benjleite/FairytaleQA-translated-ptPT`](https://huggingface.co/datasets/benjleite/FairytaleQA-translated-ptPT) fica fora do corpus de pré-treino geral e das histórias adaptadas. Guardar os pares de perguntas/respostas para uma fase supervisionada; manter os splits originais e reservar validação/teste para avaliação. Evitar que as mesmas histórias/variantes apareçam no pré-treino.
+
+**Total de pré-treino previsto: aproximadamente 425–435 milhões de tokens**, mais os exemplos supervisionados. **O treino e a recolha integral ainda não ocorreram.** O código atual em `build_ptpt.py` suporta o corpus geral parcialmente e a extração do FairytaleQA, mas **não gera nem valida as 100.000 histórias adaptadas**.
 
 ## Fontes e limites
 
 - **CETEMPúblico 1.7:** texto jornalístico português. Colocar manualmente `CETEMPublico1.7.gz` em `dados/corpus_ptpt/raw/`; o leitor processa o `.gz` sem o descomprimir para disco. Formato original SGML; não usar os corpora anotados de vários GB. Condições da Linguateca/PÚBLICO aplicam-se.
 - **Bagaço2:** `duarteocarmo/fineweb2-bagaco2` no Hugging Face. **ATENÇÃO:** a configuração HF predefinida é `sample`, de 79 mil linhas; para a recolha verdadeira é obrigatório usar a configuração **`all`**. O programa força `all` por omissão e utiliza `streaming=True`. Aplica `ptpt_score >= 0.90`, `educational_score >= 2` por omissão. São filtros heurísticos; a variante não é garantida a 100%.
 - **ParlaMint-PT**, **ELTeC-por** e **Projecto Adamastor**: depois de converter/obter os textos em ficheiros `.txt` UTF-8 devidamente autorizados, importá-los através de `textos`. A conversão de XML/EPUB e a seleção de obras adequadas ainda precisam de ser efetuadas; o script **não** as faz automaticamente.
+- **Histórias simples PT-PT:** ainda não automatizadas; os textos de DominuZ e Boakpe precisam de adaptação, validação e deduplicação antes de poderem ser incluídos. A saída futura deverá estar separada do corpus geral.
 - **FairytaleQA PT-PT:** `benjleite/FairytaleQA-translated-ptPT`. São 10.580 pares de perguntas/respostas baseados em **278 histórias**, não 10.580 histórias. A coluna `story_section` contém *excertos*, não necessariamente o conto completo. Os contextos e os QA são guardados por split, **mas não entram no pré-treino geral v1**. Para compreensão, usar apenas o split `train` no treino; `validation` e `test` ficam reservados para avaliação.
 
 O dataset inclui texto português escrito antes do Acordo Ortográfico e linguagem literária antiga. Não se reescreve automaticamente a ortografia. Filtrar posteriormente por qualidade real e diversidade antes de considerar a coleção definitiva. Faz-se deduplicação exata de documentos (não uma deduplicação semântica de paráfrases) e divisão estável por grupo. O `educational_score` do Bagaço2 é um classificador imperfeito. As quotas finais têm de ser medidas com o tokenizer e verificadas antes do treino.
@@ -110,5 +123,5 @@ Os testes são locais e usam exemplos artificiais; **não equivalem à validaç�
 1. **Modelo PT-PT de raiz**, novo tokenizer e pesos; não usar tokenizer inglês antigo.
 2. **Pré-treino geral**, depois treino narrativo/conversacional e só depois especialização em receitas.
 3. **FairytaleQA inteiramente fora do pré-treino geral v1**; reservar os splits de validação e teste para avaliação de compreensão narrativa.
-4. **Sem histórias fictícias em massa** para atingir arbitrariamente uma meta.
+4. **Com histórias PT-BR adaptadas e validadas para PT-PT** como fase narrativa, sem gerar histórias novas em massa para cumprir quotas.
 5. **Sem corpus no repositório de código**, apenas scripts, documentação e testes.

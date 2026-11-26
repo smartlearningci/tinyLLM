@@ -1,12 +1,12 @@
 {
-  "versao": "tinyslm-ptpt-v1.0",
-  "estado": "composicao_fechada_dados_a_recolher_e_validar",
+  "versao": "tinyslm-ptpt-v1.1",
+  "estado": "composicao_geral_historias_compreensao_definida_ainda_sem_corpus_construido",
   "data_decisao": "2026-11-26",
   "lingua_alvo": "pt-PT",
   "politica": {
-    "pretreino": "Aceitar apenas documentos em portugues europeu apos filtros; zero PT-BR nao convertido.",
-    "traducao_automatica_ptbr": "Nao incluir na versao v1.",
-    "historias_sinteticas": "Nao incluir na versao v1.",
+    "pretreino": "Separar corpus geral e historias simples, usando apenas documentos aceites em portugues europeu; PT-BR bruto nunca entra no treino.",
+    "traducao_automatica_ptbr": "E permitida adaptacao de PT-BR para PT-PT quando houver verificacao de qualidade; os originais PT-BR nao podem entrar no treino.",
+    "historias_sinteticas": "Nao gerar historias novas em massa na v1; adaptar e auditar historias existentes.",
     "sem_inventar": "Nao criar documentos artificiais para completar quotas.",
     "auditoria": "Guardar origem, versao, hash, numero de documentos, palavras e tokens por fonte; deduplicar entre fontes.",
     "treino_val": "Particao deterministica por documento/obra e sem fuga de textos ou variantes.",
@@ -72,7 +72,8 @@
         "estado_extracao": "requer_selecao_de_obras_e_conversao_epub"
       }
     ],
-    "politica_de_quota": "ParlaMint e narrativa sao tetos, nao metas obrigatorias. Se faltar material validado, completar com documentos distintos do Bagaço2; nao repetir corpus."
+    "politica_de_quota": "ParlaMint e narrativa sao tetos, nao metas obrigatorias. Se faltar material validado, completar com documentos distintos do Bagaço2; nao repetir corpus.",
+    "rotulo": "Corpus geral PT-PT, separado do corpus de historias curtas"
   },
   "compreensao": {
     "dataset": "benjleite/FairytaleQA-translated-ptPT",
@@ -92,8 +93,7 @@
     "nota": "Excertos story_section repetem-se por pergunta; foram traduzidos automaticamente e exigem verificacao do PT-PT."
   },
   "excluidos": [
-    "DominuZ/TinyStories-pt-BR",
-    "Boakpe/historinhas",
+    "Historias PT-BR de DominuZ e Boakpe sem adaptacao PT-PT validada",
     "ju-resplande/portuguese-fact-checking",
     "ClassiCC-PT sem filtro de variante",
     "historias geradas em massa nao auditadas",
@@ -105,6 +105,53 @@
     "Respeitar limites de obras completas e reservar obras/grupos para validacao.",
     "Metricas por fonte e hashes dos ficheiros; contagem real de tokens.",
     "Inspecionar amostras de textos contemporaneos e antigos para qualidade linguistica.",
-    "Confirmar que historias validation/test do FairytaleQA nao estao presentes no pretreino."
-  ]
+    "Confirmar que historias validation/test do FairytaleQA nao estao presentes no pretreino.",
+    "Validar separadamente as historias PT-PT adaptadas; documentar taxa de rejeicao e evitar fuga entre familias."
+  ],
+  "historias_ptpt": {
+    "objetivo": "Reproduzir a fase de historias simples do TinyStories ingles sem contaminar o treino com PT-BR",
+    "meta_historias_aceites": 100000,
+    "tokens_estimados_min": 25000000,
+    "tokens_estimados_max": 35000000,
+    "tipo": "corpus_narrativo_simples_ptpt_adaptado",
+    "fontes": [
+      {
+        "id": "tinystories_ptbr",
+        "dataset": "DominuZ/TinyStories-pt-BR",
+        "url": "https://huggingface.co/datasets/DominuZ/TinyStories-pt-BR",
+        "papel": "fonte_preferencial_para_adaptacao",
+        "estado": "adaptacao_e_auditoria_nao_implementadas"
+      },
+      {
+        "id": "historinhas",
+        "dataset": "Boakpe/historinhas",
+        "url": "https://huggingface.co/datasets/Boakpe/historinhas",
+        "papel": "complemento_apos_auditoria_deduplicacao",
+        "estado": "adaptacao_e_auditoria_nao_implementadas"
+      }
+    ],
+    "regras": [
+      "Nunca treinar em textos PT-BR originais; adaptar primeiro a gramatica, lexicos e colocacao pronominal para PT-PT natural.",
+      "Conservar original, adaptacao, origem, identificador de familia e resultados de auditoria.",
+      "Rejeitar adaptacoes mecanicas incorretas, textos artificiais e historias duplicadas ou muito semelhantes.",
+      "Contar historias aceites apos deduplicacao; nao repetir textos para cumprir quotas.",
+      "Particionar por familia de historia antes de treino e validacao, sem fuga entre variantes e fontes.",
+      "O numero de tokens e apenas uma estimativa antes do tokenizer; nao representa dados ja recolhidos.",
+      "Confirmar direitos de reutilizacao e transformacao segundo cada fonte."
+    ],
+    "uso_no_treino": "Etapa narrativa apos pretreino geral, com mistura controlada de textos gerais para limitar esquecimento."
+  },
+  "resumo_treino": {
+    "corpus_geral_meta_tokens": 400000000,
+    "historias_meta_quantidade": 100000,
+    "historias_tokens_estimados": [
+      25000000,
+      35000000
+    ],
+    "total_pretreino_tokens_estimados": [
+      425000000,
+      435000000
+    ],
+    "nota": "Estimativas; o corpus e o treino ainda nao foram executados."
+  }
 }
