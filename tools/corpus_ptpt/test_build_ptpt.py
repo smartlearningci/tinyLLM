@@ -56,18 +56,20 @@ class TestCorpus(unittest.TestCase):
             processar_fairytale(data, self.p)
         good = self.p / 'processed.jsonl.gz'
         ingere_documentos([{'text': TEXT}], good, 'cetempublico')
-        merged = merge(self.p / 'release', [good, self.p / 'fairytale_contextos_train.jsonl.gz'])
-        self.assertEqual(merged['train'] + merged['validation'], 1)  # duplicate by identical text
+        merged = merge(self.p / 'release', [good])
+        self.assertEqual(merged['train'] + merged['validation'], 1)
+        with self.assertRaises(ValueError):
+            merge(self.p / 'bad_fairytale', [self.p / 'fairytale_contextos_train.jsonl.gz'])
         with self.assertRaises(ValueError):
             merge(self.p / 'bad_release', [self.p / 'fairytale_contextos_test.jsonl.gz'])
 
     def test_deduplicacao_e_versoes_imutaveis(self):
         out = self.p / 'a.jsonl.gz'
-        s = ingere_documentos([{'text': TEXT}, {'text': TEXT}, {'text': TEXT+' Outra nota.'}], out, 'extra')
+        s = ingere_documentos([{'text': TEXT}, {'text': TEXT}, {'text': TEXT+' Outra nota.'}], out, 'textos_ptpt')
         self.assertEqual(s['guardados'], 2)
         self.assertEqual(s['descartados'], 1)
         with self.assertRaises(FileExistsError):
-            ingere_documentos([], out, 'extra')
+            ingere_documentos([], out, 'textos_ptpt')
         r = merge(self.p / 'out', [out])
         self.assertEqual(r['train'] + r['validation'], 2)
         with self.assertRaises(FileExistsError):

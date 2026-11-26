@@ -1,0 +1,19 @@
+name: Testes corpus PT-PT
+on:
+  push:
+    paths:
+      - 'tools/corpus_ptpt/**'
+      - '.github/workflows/test-corpus-ptpt.yml'
+  pull_request:
+    paths:
+      - 'tools/corpus_ptpt/**'
+      - '.github/workflows/test-corpus-ptpt.yml'
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m unittest discover -s tools/corpus_ptpt -p 'test_*.py' -v

@@ -25,7 +25,7 @@ RE_SPACE = re.compile(r'[ \t\r\f\v]+')
 RE_WORD = re.compile(r'\w+', re.UNICODE)
 RE_EXT = re.compile(r'<ext(?:\s|>)', re.I)
 RE_END_EXT = re.compile(r'</ext\s*>', re.I)
-VERSION = 'ptpt-corpus-1.0'
+VERSION = 'ptpt-corpus-1.2'
 
 
 def normalizar(texto: str) -> str:
@@ -208,12 +208,10 @@ def processar_fairytale(datasets: dict, pasta: Path) -> dict:
 
 
 def txt_documentos(pasta: Path):
-    for p in sorted(pasta.rglob('*.txt')):
-        if not p.is_file():
-            continue
-        # Detecta BOM UTF-8; textos de fontes modernas deverão ser UTF-8.
-        texto = p.read_text(encoding='utf-8-sig')
-        yield {'id': 'texto:' + digest(str(p.relative_to(pasta)))[:20], 'text': texto}
+    # Não descartar livros completos por serem >250 kB: dividir em blocos e
+    # manter a mesma chave de grupo para toda a obra (evita train/val leakage).
+    from fontes_literarias import textos_docs
+    yield from textos_docs(pasta, 'textos_ptpt')
 
 
 def iter_jsonl_gz(ficheiro: Path):
@@ -226,7 +224,7 @@ def iter_jsonl_gz(ficheiro: Path):
 def merge(pasta: Path, entradas: list[Path], val_permille: int = 5) -> dict:
     """Merge global deduplicado exato com split determinístico por grupo.
 
-    O split reservado do FairytaleQA não é incluído; apenas contextos TRAIN.
+    FairytaleQA é EXCLUSIVAMENTE supervisionado: nunca entra neste merge.
     """
     if not 1 <= val_permille <= 50:
         raise ValueError('val_permille deve estar entre 1 e 50.')
@@ -252,10 +250,14 @@ def merge(pasta: Path, entradas: list[Path], val_permille: int = 5) -> dict:
                     raise FileNotFoundError(file)
                 for row in iter_jsonl_gz(file):
                     source = str(row.get('source', ''))
-                    if source == 'fairytaleqa_ptpt' and row.get('split') != 'train':
-                        raise ValueError('Tentativa de misturar FairytaleQA validation/test no pré-treino: ' + str(file))
+                    if source == 'fairytaleqa_ptpt' or 'fairytale_contextos_' in file.name:
+                        raise ValueError('FairytaleQA é reservado para compreensão, não para pré-treino: ' + str(file))
+                    if source not in {'cetempublico', 'bagaco2', 'parlamint_pt', 'eltec_por', 'adamastor', 'textos_ptpt'}:
+                        raise ValueError('Fonte não autorizada para o corpus geral: ' + source)
+                    if row.get('lang') != 'pt-PT':
+                        raise ValueError('Documento sem etiqueta pt-PT: ' + str(row.get('id')))
                     texto = normalizar(row.get('text', ''))
-                    if not aceitavel(texto, min_palavras=20 if source == 'fairytaleqa_ptpt' else 35):
+                    if not aceitavel(texto, min_palavras=35):
                         res['discarded'] += 1
                         continue
                     sha = digest(texto)
@@ -264,13 +266,12 @@ def merge(pasta: Path, entradas: list[Path], val_permille: int = 5) -> dict:
                     except sqlite3.IntegrityError:
                         res['discarded'] += 1
                         continue
-                    # Fairytale tem a sua própria divisão em histórias; só train vai a train.
+                    # Preservar divisão consistente por grupo/obra.
                     grupo = str(row.get('group') or row.get('id') or sha)
                     h = int(hashlib.sha256(('ptpt-v1|' + grupo).encode()).hexdigest()[:8], 16)
-                    split = ('train' if source == 'fairytaleqa_ptpt' else
-                             ('validation' if h % 1000 < val_permille else 'train'))
+                    split = 'validation' if h % 1000 < val_permille else 'train'
                     palavras = len(RE_WORD.findall(texto))
-                    reg = {'id': row['id'], 'source': source, 'lang': 'pt-PT', 'text': texto}
+                    reg = {'id': row['id'], 'source': source, 'lang': 'pt-PT', 'group': grupo, 'text': texto}
                     escrever(tr if split == 'train' else va, reg)
                     res[split] += 1
                     res['words_' + split] += palavras

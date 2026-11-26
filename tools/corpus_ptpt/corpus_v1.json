@@ -1,6 +1,6 @@
 {
-  "versao": "tinyslm-ptpt-v1.1",
-  "estado": "composicao_geral_historias_compreensao_definida_ainda_sem_corpus_construido",
+  "versao": "tinyslm-ptpt-v1.2",
+  "estado": "pipeline_de_codigo_implementado_e_testado_dados_reais_pendentes",
   "data_decisao": "2026-11-26",
   "lingua_alvo": "pt-PT",
   "politica": {
@@ -72,7 +72,7 @@
         "estado_extracao": "requer_selecao_de_obras_e_conversao_epub"
       }
     ],
-    "politica_de_quota": "ParlaMint e narrativa sao tetos, nao metas obrigatorias. Se faltar material validado, completar com documentos distintos do Bagaço2; nao repetir corpus.",
+    "politica_de_quota": "Os limites por fonte são calculados com o tokenizer real no equilibrar_corpus.py: Bagaço2 200M, CETEMPúblico 150M, ParlaMint 20M, ELTeC+Adamastor 30M; carências podem ser completadas com Bagaço2 se houver material. Meta não garantida sem corpora reais.",
     "rotulo": "Corpus geral PT-PT, separado do corpus de historias curtas"
   },
   "compreensao": {
@@ -120,14 +120,14 @@
         "dataset": "DominuZ/TinyStories-pt-BR",
         "url": "https://huggingface.co/datasets/DominuZ/TinyStories-pt-BR",
         "papel": "fonte_preferencial_para_adaptacao",
-        "estado": "adaptacao_e_auditoria_nao_implementadas"
+        "estado": "pipeline_de_recolha_adaptacao_auditoria_e_publicacao_implementado; transferencia_e_revisao_de_dados_reais_pendentes"
       },
       {
         "id": "historinhas",
         "dataset": "Boakpe/historinhas",
         "url": "https://huggingface.co/datasets/Boakpe/historinhas",
         "papel": "complemento_apos_auditoria_deduplicacao",
-        "estado": "adaptacao_e_auditoria_nao_implementadas"
+        "estado": "pipeline_de_recolha_adaptacao_auditoria_e_publicacao_implementado; transferencia_e_revisao_de_dados_reais_pendentes"
       }
     ],
     "regras": [
@@ -139,7 +139,7 @@
       "O numero de tokens e apenas uma estimativa antes do tokenizer; nao representa dados ja recolhidos.",
       "Confirmar direitos de reutilizacao e transformacao segundo cada fonte."
     ],
-    "uso_no_treino": "Etapa narrativa apos pretreino geral, com mistura controlada de textos gerais para limitar esquecimento."
+    "uso_no_treino": "Textos PT-PT aprovados em etapa narrativa posterior ao pretreino geral; binarios e notebook de treino narrativo ainda por preparar."
   },
   "resumo_treino": {
     "corpus_geral_meta_tokens": 400000000,
@@ -153,5 +153,33 @@
       435000000
     ],
     "nota": "Estimativas; o corpus e o treino ainda nao foram executados."
+  },
+  "implementacao": {
+    "status": "codigo_publicado_e_17_testes_locais_passaram; dados_completos_nao_descarregados",
+    "modulos": [
+      "build_ptpt.py",
+      "fontes_literarias.py",
+      "historias_ptpt.py",
+      "equilibrar_corpus.py",
+      "finalizar_dataset.py",
+      "pipeline_ptpt.py",
+      "preparar_treino.py"
+    ],
+    "testes": [
+      "test_build_ptpt.py",
+      "test_pipeline_ptpt.py"
+    ],
+    "tarefas": "TAREFAS.md",
+    "recuperacao": "Adaptacao reexecutavel por ID; outputs restantes imutaveis e versionados.",
+    "recolha_geral": "CETEMPúblico e Bagaço2 streaming; ELTeC nivel1 GitHub SHA; ParlaMint e Adamastor extratores locais.",
+    "historias": "PT-BR brutas so em staging; adaptacao API, detector residual PTBR, amostragem humana, lotes aprovados, MinHash/Jaccard cruzado.",
+    "qa": "FairytaleQA preserva treino/validacao/teste e exporta formato de mensagens para SFT.",
+    "quotas": "Tokenizador PT-PT real; reequilibra quotas por fonte antes do packing.",
+    "limites": [
+      "Downloads HF e de outros dados reais ainda nao executados no ambiente",
+      "Sem execucao de modelo de adaptacao; qualidade PT-PT depende de revisao",
+      "Quase duplicados do corpus geral alem dos exatos ainda carecem de auditoria",
+      "Sem pacote Kaggle real nem treino executado"
+    ]
   }
 }
