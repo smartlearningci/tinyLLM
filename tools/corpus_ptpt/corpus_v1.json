@@ -1,0 +1,110 @@
+{
+  "versao": "tinyslm-ptpt-v1.0",
+  "estado": "composicao_fechada_dados_a_recolher_e_validar",
+  "data_decisao": "2026-11-26",
+  "lingua_alvo": "pt-PT",
+  "politica": {
+    "pretreino": "Aceitar apenas documentos em portugues europeu apos filtros; zero PT-BR nao convertido.",
+    "traducao_automatica_ptbr": "Nao incluir na versao v1.",
+    "historias_sinteticas": "Nao incluir na versao v1.",
+    "sem_inventar": "Nao criar documentos artificiais para completar quotas.",
+    "auditoria": "Guardar origem, versao, hash, numero de documentos, palavras e tokens por fonte; deduplicar entre fontes.",
+    "treino_val": "Particao deterministica por documento/obra e sem fuga de textos ou variantes.",
+    "redistribuicao": "Verificar licencas e termos de cada fonte antes de publicar corpus ou pesos."
+  },
+  "modelo": {
+    "parametros_aproximados": 50000000,
+    "tokenizer": "ByteLevel-BPE",
+    "vocabulario": 8192,
+    "contexto": 512
+  },
+  "pretreino": {
+    "meta_tokens_unicos": 400000000,
+    "contagens_definitivas": "Apenas apos limpeza e tokenizacao com tokenizer PT-PT.",
+    "validacao_permille": 5,
+    "compor_com": [
+      {
+        "id": "bagaco2",
+        "nome": "Bagaço2 PT-PT",
+        "url": "https://huggingface.co/datasets/duarteocarmo/fineweb2-bagaco2",
+        "meta_tokens": 200000000,
+        "tipo": "web_ptpt",
+        "estado_extracao": "pipeline_streaming_disponivel",
+        "criterios": {
+          "config": "all",
+          "ptpt_score_minimo": 0.9,
+          "educational_score_minimo": 2
+        }
+      },
+      {
+        "id": "cetempublico",
+        "nome": "CETEMPúblico 1.7",
+        "url": "https://www.linguateca.pt/cetempublico/index_info.html",
+        "meta_tokens": 150000000,
+        "tipo": "jornalismo_ptpt",
+        "estado_extracao": "pipeline_gzip_disponivel",
+        "ficheiro": "dados/corpus_ptpt/raw/CETEMPublico1.7.gz"
+      },
+      {
+        "id": "parlamint_pt",
+        "nome": "ParlaMint-PT",
+        "url": "https://www.clarin.eu/parlamint",
+        "meta_tokens_maximos": 20000000,
+        "tipo": "debates_parlamentares_ptpt",
+        "estado_extracao": "requer_obtencao_e_conversao_para_txt"
+      },
+      {
+        "id": "eltec_por",
+        "nome": "ELTeC-por",
+        "url": "https://github.com/COST-ELTeC/ELTeC-por",
+        "meta_tokens_grupo_maximos": 30000000,
+        "grupo": "narrativa_portuguesa",
+        "tipo": "romances_ptpt",
+        "estado_extracao": "requer_conversao_xml_e_selecao"
+      },
+      {
+        "id": "adamastor",
+        "nome": "Projecto Adamastor",
+        "url": "https://projectoadamastor.org/base-de-dados-de-livros-digitais/",
+        "meta_tokens_grupo_maximos": 30000000,
+        "grupo": "narrativa_portuguesa",
+        "tipo": "literatura_ptpt",
+        "estado_extracao": "requer_selecao_de_obras_e_conversao_epub"
+      }
+    ],
+    "politica_de_quota": "ParlaMint e narrativa sao tetos, nao metas obrigatorias. Se faltar material validado, completar com documentos distintos do Bagaço2; nao repetir corpus."
+  },
+  "compreensao": {
+    "dataset": "benjleite/FairytaleQA-translated-ptPT",
+    "url": "https://huggingface.co/datasets/benjleite/FairytaleQA-translated-ptPT",
+    "finalidade": "SFT de compreensao narrativa e avaliacao; nao misturar os contextos no corpus geral v1.",
+    "historias": {
+      "train": 232,
+      "validation": 23,
+      "test": 23
+    },
+    "pares_qa": {
+      "train": 8548,
+      "validation": 1025,
+      "test": 1007
+    },
+    "regra": "Reservar integralmente as historias de validation/test; deduplicar por story_name e excerto; nao misturar QA no pretreino.",
+    "nota": "Excertos story_section repetem-se por pergunta; foram traduzidos automaticamente e exigem verificacao do PT-PT."
+  },
+  "excluidos": [
+    "DominuZ/TinyStories-pt-BR",
+    "Boakpe/historinhas",
+    "ju-resplande/portuguese-fact-checking",
+    "ClassiCC-PT sem filtro de variante",
+    "historias geradas em massa nao auditadas",
+    "receitas culinarias nesta fase de pretreino geral"
+  ],
+  "aceitacao_antes_treino": [
+    "Documentos filtrados para pt-PT e conteudo sem marcacoes tecnicas.",
+    "Sem duplicados exatos e com verificacao de quase-duplicados entre fontes e splits.",
+    "Respeitar limites de obras completas e reservar obras/grupos para validacao.",
+    "Metricas por fonte e hashes dos ficheiros; contagem real de tokens.",
+    "Inspecionar amostras de textos contemporaneos e antigos para qualidade linguistica.",
+    "Confirmar que historias validation/test do FairytaleQA nao estao presentes no pretreino."
+  ]
+}
