@@ -92,13 +92,37 @@ Os romances são divididos em blocos até 12 mil caracteres **com a mesma chave 
 
 ## 2. Recolher e adaptar 100 000 histórias
 
+**Boakpe — alternativa ao JSON gigante (1,63 GB):** a recolha direta via `datasets` pode terminar antes de produzir registos, porque a origem está num único JSON enorme. O novo `recolher_boakpe_api.py` consulta a API `/rows` do HF Dataset Viewer em páginas de 100 histórias, usando exportações Parquet do servidor, sem carregar o JSON inteiro na RAM. Cada página é guardada atomicamente em `historinhas.jsonl.gz.pages/`, permitindo retomar após falhas. Este método depende da disponibilidade da API; ainda precisa de validação com o serviço real (os testes são simulados).
+
+Se existir um ficheiro `historinhas.jsonl.gz` vazio de tentativa anterior, **preservá-lo** com outro nome:
+
+```bash
+mv dados/corpus_ptpt/historias/raw/historinhas.jsonl.gz \
+   dados/corpus_ptpt/historias/raw/historinhas.vazio.jsonl.gz
+```
+
+Primeiro testar **uma página**, sem gerar o ficheiro final:
+
+```bash
+python tools/corpus_ptpt/recolher_boakpe_api.py --max-rows 60000 --max-paginas 1
+```
+
+Se a primeira página tiver histórias válidas, executar **o mesmo comando sem `--max-paginas`** para retomar e obter até 60.000 histórias únicas:
+
+```bash
+python tools/corpus_ptpt/recolher_boakpe_api.py --max-rows 60000
+```
+
+Se a API recusar a consulta ou ocorrer um erro de rede, as páginas anteriores ficam guardadas; basta repetir o comando. **Não apagar a pasta `.pages` durante a recolha**. O formato final é compatível com `historias_ptpt.py adaptar`. A quantidade obtida e a variante final têm de ser validadas.
+
+
 Existem scripts de recolha reais para os campos HF correspondentes: TinyStories usa `text`/equivalente e Boakpe usa `texto`. Os downloads são feitos com `streaming=True`, para não trazer milhões de histórias à memória.
 
 ```bash
 python3 tools/corpus_ptpt/historias_ptpt.py recolher --dataset tinystories \
   --max-rows 120000 --out dados/corpus_ptpt/historias/raw/tinystories.jsonl.gz
-python3 tools/corpus_ptpt/historias_ptpt.py recolher --dataset historinhas \
-  --max-rows 60000 --out dados/corpus_ptpt/historias/raw/historinhas.jsonl.gz
+# Para Boakpe, preferir o método /rows descrito acima:
+python tools/corpus_ptpt/recolher_boakpe_api.py --max-rows 60000
 ```
 
 **120 mil + 60 mil são candidatos, não histórias aprovadas.** É provável precisar de recolher mais, após perdas por qualidade e deduplicação. Não são histórias PT-PT nesta fase.
