@@ -14,7 +14,7 @@
 | 8 | Evitar descarte de romances por tamanho | ✅ Corrigido/testado | Blocos até 12k caracteres por obra |
 | 9 | FairytaleQA separado e SFT por split | ✅ Implementado/testado | `build_ptpt.py fairytale` + `pipeline_ptpt.py preparar-qa`; falta HF real |
 | 10 | Ingerir TinyStories-pt-BR e Boakpe em streaming | ✅ Implementado/testado com esquema simulado | `historias_ptpt.py recolher`; falta testar download HF real |
-| 11 | Reescrita PT-BR→PT-PT por API de LLM, com retoma | ✅ Implementado/testado com cliente falso | Requer escolha de modelo/endpoints e medição de custo |
+| 11 | Reescrita PT-BR→PT-PT: Codex CLI sem API paga, com lotes, retoma e schema JSON (endpoint alternativo opcional) | ✅ Implementado/testado offline | `codex_adapt_stories.py` + `CODEX_HISTORIAS_PTPT.md`; falta conversão real e medição da quota |
 | 12 | Auditoria de brasileirismos e problemas de adaptação | ✅ Implementado/testado | São heurísticas; requer inspeção humana |
 | 13 | Amostragem por lote + aprovação humana | ✅ Implementado/testado | Falta revisão humana de resultados reais |
 | 14 | Deduplicar histórias quase iguais, cruzar fontes e criar splits | ✅ Implementado/testado | `historias_ptpt.py juntar-aprovadas`; falta executar nos dados reais |
@@ -23,7 +23,7 @@
 | 17 | Codificar uint16 e inventariar SHA/tokens | ✅ Scripts implementados | Falta execução real e validação em grandes volumes |
 | 18 | Controlar estado e impedir release integral incompleta | ✅ Implementado | `pipeline_ptpt.py estado` / `finalizar-geral` |
 | 19 | Gerar pacote privado para Kaggle | ✅ Implementado | `finalizar_dataset.py kaggle`; falta artefactos reais |
-| 20 | Selecionar modelo de adaptação PT-PT competente | ⏳ Pendente | Experimentar 50 histórias, medir correções e custo/tempo |
+| 20 | Selecionar modelo de adaptação PT-PT competente | ⏳ Pendente | Executar 50 adaptações via Codex CLI, rever todas e medir consumo/tempo antes de escalar |
 | 21 | Recolher 400 M tokens gerais úteis, após filtros | ⏳ Pendente | Recolha, quota real por tokenizer, dedup aproximada e auditoria |
 | 22 | Adaptar e aprovar 100 000 histórias PT-PT distintas | ⏳ Pendente | LLM adequado, revisão, execução longa, dedup cruzada |
 | 23 | Auditar licenças/atribuição e contaminação train/validation/test | ⏳ Pendente | Especial atenção a CETEMPúblico, fontes web e traduções |

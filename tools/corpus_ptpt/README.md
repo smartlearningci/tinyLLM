@@ -92,6 +92,18 @@ Os romances são divididos em blocos até 12 mil caracteres **com a mesma chave 
 
 ## 2. Recolher e adaptar 100 000 histórias
 
+**Método preferencial — Codex CLI com a sessão ChatGPT, sem chave API:** reproduzimos o pipeline de produção de perguntas em inglês, com prompt curto, JSON obrigatório, lotes, 8 trabalhadores e retoma. Primeiro 50 histórias (30 TinyStories + 20 Boakpe), depois a mesma fila completa. **Ler o guia [CODEX_HISTORIAS_PTPT.md](CODEX_HISTORIAS_PTPT.md)** e executar:
+
+```bash
+python tools/corpus_ptpt/codex_adapt_stories.py preparar
+codex login status
+python tools/corpus_ptpt/codex_adapt_stories.py gerar --limit 50 --dry-run
+python tools/corpus_ptpt/codex_adapt_stories.py gerar --limit 50
+```
+
+As 50 histórias devem ser revistas antes de continuar com `--limit 0`. Os lotes concluídos não são repetidos. Depois usar `exportar` e os comandos `historias_ptpt.py auditar/amostrar/publicar` existentes. O método anterior abaixo, via endpoint OpenAI-compatible/Ollama, permanece opcional. **Ainda não foram executadas chamadas reais de Codex para adaptar estas histórias; o código foi testado offline.** Não há garantia de completar ~180 mil narrativas dentro do mesmo plafond ou prazo de 20 mil etiquetas curtas.
+
+
 **HTTP 429 (Too Many Requests):** o servidor limitou a frequência dos pedidos. Os blocos já guardados em `*.pages/` ficam intactos. **Não apagar nem recomeçar do zero.** Aguardar alguns minutos e voltar a executar. Nesta versão os pedidos são espaçados por **5 segundos**, e o programa respeita `Retry-After` e aguarda pelo menos **120 segundos** no primeiro 429, com espera crescente. Para verificar a retoma, usar `--max-paginas 10`; as páginas anteriores não são repetidas.
 
 ```bash

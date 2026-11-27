@@ -139,7 +139,21 @@
       "O numero de tokens e apenas uma estimativa antes do tokenizer; nao representa dados ja recolhidos.",
       "Confirmar direitos de reutilizacao e transformacao segundo cada fonte."
     ],
-    "uso_no_treino": "Textos PT-PT aprovados em etapa narrativa posterior ao pretreino geral; binarios e notebook de treino narrativo ainda por preparar."
+    "uso_no_treino": "Textos PT-PT aprovados em etapa narrativa posterior ao pretreino geral; binarios e notebook de treino narrativo ainda por preparar.",
+    "metodo_adaptacao_codex": {
+      "abordagem": "Codex CLI com login ChatGPT, sem chave API; herda desenho de tools/recipe_intents/codex_generate_intents.py",
+      "script": "tools/corpus_ptpt/codex_adapt_stories.py",
+      "guia": "tools/corpus_ptpt/CODEX_HISTORIAS_PTPT.md",
+      "piloto": 50,
+      "piloto_tinystories": 30,
+      "piloto_historinhas": 20,
+      "batch_size": 10,
+      "workers": 8,
+      "reasoning": "low",
+      "default_model_do_pipeline_anterior": "gpt-6-luna",
+      "politica": "Nao escalar antes de validar 50. Salvar e reutilizar lotes; monitorizar tokens do CLI e limites da subscricao.",
+      "estado": "codigo_publicado_e_testado; chamadas_reais_pendentes"
+    }
   },
   "resumo_treino": {
     "corpus_geral_meta_tokens": 400000000,
@@ -163,11 +177,13 @@
       "equilibrar_corpus.py",
       "finalizar_dataset.py",
       "pipeline_ptpt.py",
-      "preparar_treino.py"
+      "preparar_treino.py",
+      "codex_adapt_stories.py"
     ],
     "testes": [
       "test_build_ptpt.py",
-      "test_pipeline_ptpt.py"
+      "test_pipeline_ptpt.py",
+      "test_codex_adapt_stories.py"
     ],
     "tarefas": "TAREFAS.md",
     "recuperacao": "Adaptacao reexecutavel por ID; outputs restantes imutaveis e versionados.",
