@@ -56,7 +56,11 @@ def registo_da_linha(row: dict, row_idx: int):
     }
 
 
-def pedir_pagina(offset: int, length: int = PAGE_SIZE, *, timeout: float = 35, retries: int = 4):
+def pedir_pagina(offset: int, length: int = PAGE_SIZE, *, timeout: float = 35,
+                 retries: int = 4, pausa_429: float = 120):
+    """Respeita HTTP 429 e o cabeçalho Retry-After; sem pedidos em rajada."""
+    if pausa_429 < 0:
+        raise ValueError('pausa_429 não pode ser negativa')
     url = BASE_URL + '?' + urlencode({
         'dataset': DATASET, 'config': 'default', 'split': 'train',
         'offset': offset, 'length': length,
@@ -64,7 +68,7 @@ def pedir_pagina(offset: int, length: int = PAGE_SIZE, *, timeout: float = 35, r
     erro = None
     for n in range(retries):
         try:
-            request = Request(url, headers={'User-Agent': 'TinySLM-PTPT/1.0'})
+            request = Request(url, headers={'User-Agent': 'TinySLM-PTPT/1.1'})
             with urlopen(request, timeout=timeout) as response:
                 data = json.load(response)
             if not isinstance(data.get('rows'), list):
@@ -74,8 +78,30 @@ def pedir_pagina(offset: int, length: int = PAGE_SIZE, *, timeout: float = 35, r
             erro = e
             print(f'Falha na página {offset} (tentativa {n+1}/{retries}): {str(e)[:160]}',
                   file=sys.stderr, flush=True)
-            if n + 1 < retries:
-                time.sleep(min(2 ** n, 8))
+            if isinstance(e, HTTPError) and e.code in (400, 401, 403, 404):
+                raise RuntimeError(f'HTTP {e.code} ao pedir a página {offset}; verificar permissão/configuração, sem repetir pedidos.') from e
+            if n + 1 >= retries:
+                break
+            espera = min(2 ** n, 8)
+            if isinstance(e, HTTPError) and e.code == 429:
+                espera = max(pausa_429 * (n + 1), espera)
+                retry_after = e.headers.get('Retry-After') if e.headers else None
+                if retry_after:
+                    try:
+                        espera = max(espera, float(retry_after))
+                    except (ValueError, TypeError):
+                        from email.utils import parsedate_to_datetime
+                        from datetime import datetime, timezone
+                        try:
+                            quando = parsedate_to_datetime(retry_after)
+                            if quando.tzinfo is None:
+                                quando = quando.replace(tzinfo=timezone.utc)
+                            espera = max(espera, (quando - datetime.now(timezone.utc)).total_seconds())
+                        except (TypeError, ValueError, OverflowError):
+                            pass
+                print(f'Limite 429: aguardar {espera:.0f} segundos antes de repetir.',
+                      file=sys.stderr, flush=True)
+            time.sleep(espera)
     raise RuntimeError(f'Não foi possível ler a página {offset}; os blocos anteriores ficaram guardados. Último erro: {erro}')
 
 
@@ -146,9 +172,11 @@ def publicar(pasta: Path, saida: Path, limite: int):
 
 
 def recolher(saida: Path, limite: int, *, pedir=pedir_pagina, lotes_log: int = 10,
-             max_paginas: int = 0):
+             max_paginas: int = 0, intervalo: float = 0):
     if limite < 1:
         raise ValueError('A meta de histórias deve ser positiva.')
+    if intervalo < 0:
+        raise ValueError('intervalo não pode ser negativo')
     if saida.exists():
         raise FileExistsError(f'O ficheiro final já existe: {saida}. Não vou substituí-lo.')
     pasta = saida.with_name(saida.name + '.pages')
@@ -160,6 +188,8 @@ def recolher(saida: Path, limite: int, *, pedir=pedir_pagina, lotes_log: int = 1
     while len(vistos) < limite:
         if max_paginas and novas_paginas >= max_paginas:
             break
+        if intervalo:
+            time.sleep(intervalo)
         resp = pedir(offset, PAGE_SIZE)
         linhas = resp['rows']
         if not linhas:
@@ -202,9 +232,18 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--out', type=Path, default=Path('dados/corpus_ptpt/historias/raw/historinhas.jsonl.gz'))
     ap.add_argument('--max-rows', type=int, default=60000, help='Número de histórias distintas e válidas a recolher')
-    ap.add_argument('--max-paginas', type=int, default=0, help='Só para diagnóstico: limitar páginas por execução; pode retomar')
+    ap.add_argument('--max-paginas', type=int, default=0, help='Limitar páginas por execução; permite retomar')
+    ap.add_argument('--intervalo', type=float, default=5.0,
+                    help='Segundos entre pedidos /rows (por omissão 5, para evitar HTTP 429)')
+    ap.add_argument('--pausa-429', type=float, default=120.0,
+                    help='Espera mínima inicial quando o servidor devolve HTTP 429')
     args = ap.parse_args(argv)
-    print(json.dumps(recolher(args.out, args.max_rows, max_paginas=args.max_paginas),
+    if args.intervalo < 0 or args.pausa_429 < 0:
+        ap.error('Os intervalos de espera não podem ser negativos.')
+    print(json.dumps(recolher(args.out, args.max_rows, max_paginas=args.max_paginas,
+                             intervalo=args.intervalo,
+                             pedir=lambda offset, length: pedir_pagina(
+                                 offset, length, pausa_429=args.pausa_429)),
                      ensure_ascii=False, indent=2))
 
 if __name__ == '__main__':

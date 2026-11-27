@@ -92,6 +92,14 @@ Os romances são divididos em blocos até 12 mil caracteres **com a mesma chave 
 
 ## 2. Recolher e adaptar 100 000 histórias
 
+**HTTP 429 (Too Many Requests):** o servidor limitou a frequência dos pedidos. Os blocos já guardados em `*.pages/` ficam intactos. **Não apagar nem recomeçar do zero.** Aguardar alguns minutos e voltar a executar. Nesta versão os pedidos são espaçados por **5 segundos**, e o programa respeita `Retry-After` e aguarda pelo menos **120 segundos** no primeiro 429, com espera crescente. Para verificar a retoma, usar `--max-paginas 10`; as páginas anteriores não são repetidas.
+
+```bash
+python tools/corpus_ptpt/recolher_boakpe_api.py --max-rows 60000 --max-paginas 10
+# Se funcionar, continuar sem --max-paginas:
+python tools/corpus_ptpt/recolher_boakpe_api.py --max-rows 60000
+```
+
 **Boakpe — alternativa ao JSON gigante (1,63 GB):** a recolha direta via `datasets` pode terminar antes de produzir registos, porque a origem está num único JSON enorme. O novo `recolher_boakpe_api.py` consulta a API `/rows` do HF Dataset Viewer em páginas de 100 histórias, usando exportações Parquet do servidor, sem carregar o JSON inteiro na RAM. Cada página é guardada atomicamente em `historinhas.jsonl.gz.pages/`, permitindo retomar após falhas. Este método depende da disponibilidade da API; ainda precisa de validação com o serviço real (os testes são simulados).
 
 Se existir um ficheiro `historinhas.jsonl.gz` vazio de tentativa anterior, **preservá-lo** com outro nome:
