@@ -402,7 +402,12 @@ def summarize(out: Path, expected: int | None = None):
         vals['input_tokens'] += j.get('usage', {}).get('input_tokens', 0)
         vals['output_tokens'] += j.get('usage', {}).get('output_tokens', 0)
         vals['tempo_somado_segundos'] += j.get('elapsed_seconds', 0)
-    vals['erros_sinalizados'] = len(list(path.glob('batch_*.error.txt')))
+    # Uma resposta recuperada resolve o erro anterior, mas mantemos o ficheiro
+    # de diagnostico historico. Contar apenas falhas ainda sem resultado valido.
+    vals['erros_sinalizados'] = sum(
+        1 for err in path.glob('batch_*.error.txt')
+        if not err.with_name(err.name.removesuffix('.error.txt') + '.json').is_file()
+    )
     if expected is not None:
         vals['lotes_previstos'] = expected
         vals['lotes_em_falta'] = max(0, expected - vals['lotes_validos'])

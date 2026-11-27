@@ -117,12 +117,15 @@ class TestCodexStories(unittest.TestCase):
         events = {'type':'item.completed', 'item':{'type':'agent_message',
                                                    'text':json.dumps(replies)}}
         (run/'batches/batch_000000.events.jsonl').write_text(json.dumps(events)+chr(10))
+        (run/'batches/batch_000000.error.txt').write_text('ID incorreto ou repetido na resposta.')
         cfg={'model':'test','batch_size':10}
         args=SimpleNamespace(out=run,batch_size=10,model='test')
         self.assertEqual(pipeline.recover_events(args,f,10,cfg),1)
         saved=json.loads((run/'batches/batch_000000.json').read_text())
         self.assertEqual([x['id'] for x in saved['responses']], [x['id'] for x in batch])
         self.assertEqual(saved['quality_status'],'codex_unverified_recovered')
+        self.assertEqual(pipeline.summarize(run)['erros_sinalizados'], 0)
+        self.assertTrue((run/'batches/batch_000000.error.txt').exists())
         self.assertEqual(pipeline.recover_events(args,f,10,cfg),0)
 
     def test_particoes_de_50_e_total_estavel(self):
