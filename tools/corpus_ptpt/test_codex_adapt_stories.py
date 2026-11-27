@@ -75,6 +75,56 @@ class TestCodexStories(unittest.TestCase):
         schema = json.loads(pipeline.SCHEMA.read_text(encoding='utf-8'))
         self.assertEqual(schema['properties']['responses']['items']['required'], ['id','text_ptpt'])
 
+    def test_recupera_prefixo_trocado_sem_perder_hash(self):
+        hashes = [pipeline.digest_text(f'origem-{i}') for i in range(10)]
+        batch = [{'id': ('tinystories:' if i % 2 else 'historinhas:') + h[:24],
+                  'sha_original': h, 'text_original': BR}
+                 for i,h in enumerate(hashes)]
+        responses = []
+        for i,row in enumerate(batch):
+            source,suffix = row['id'].split(':')
+            trocado = ('historinhas' if source == 'tinystories' else 'tinystories')
+            responses.append({'id': trocado+':'+suffix, 'text_ptpt': PT+str(i)})
+        result = pipeline.validate_response({'responses':responses}, batch)
+        self.assertEqual(list(result), [x['id'] for x in batch])
+        self.assertEqual(result[batch[5]['id']], PT+'5')
+
+    def test_rejeita_hash_alterado_ou_duplicado_apos_normalizacao(self):
+        sha1 = pipeline.digest_text('original-um')
+        sha2 = pipeline.digest_text('original-dois')
+        batch = [{'id': 'tinystories:'+sha1[:24], 'sha_original': sha1},
+                 {'id': 'historinhas:'+sha2[:24], 'sha_original': sha2}]
+        valid = [{'id':'historinhas:'+sha1[:24], 'text_ptpt':PT},
+                 {'id':'historinhas:'+sha2[:24], 'text_ptpt':PT}]
+        self.assertEqual(len(pipeline.validate_response({'responses':valid}, batch)),2)
+        duplicate = [valid[0], {'id':batch[0]['id'], 'text_ptpt':PT}]
+        with self.assertRaisesRegex(ValueError,'ID incorreto'):
+            pipeline.validate_response({'responses':duplicate}, batch)
+        wrong = [dict(valid[0], id='historinhas:'+('0'*24)), valid[1]]
+        with self.assertRaisesRegex(ValueError,'ID incorreto'):
+            pipeline.validate_response({'responses':wrong}, batch)
+
+    def test_recupera_evento_com_prefixo_trocado_sem_chamada(self):
+        hashes = [pipeline.digest_text(f'evento-{i}') for i in range(10)]
+        batch = [{'id':'tinystories:'+sha[:24], 'sha_original':sha,
+                  'text_original':BR} for sha in hashes]
+        f = self.p/'queue_event.jsonl'
+        f.write_text(chr(10).join(json.dumps(x) for x in batch)+chr(10),
+                     encoding='utf-8')
+        run = self.p/'recover_prefix'; (run/'batches').mkdir(parents=True)
+        replies = {'responses':[{'id':'historinhas:'+sha[:24],
+                                 'text_ptpt':PT+str(i)} for i,sha in enumerate(hashes)]}
+        events = {'type':'item.completed', 'item':{'type':'agent_message',
+                                                   'text':json.dumps(replies)}}
+        (run/'batches/batch_000000.events.jsonl').write_text(json.dumps(events)+chr(10))
+        cfg={'model':'test','batch_size':10}
+        args=SimpleNamespace(out=run,batch_size=10,model='test')
+        self.assertEqual(pipeline.recover_events(args,f,10,cfg),1)
+        saved=json.loads((run/'batches/batch_000000.json').read_text())
+        self.assertEqual([x['id'] for x in saved['responses']], [x['id'] for x in batch])
+        self.assertEqual(saved['quality_status'],'codex_unverified_recovered')
+        self.assertEqual(pipeline.recover_events(args,f,10,cfg),0)
+
     def test_particoes_de_50_e_total_estavel(self):
         batch = [{'id':f'x:{i}','sha_original':str(i)} for i in range(120)]
         f = self.p/'queue.jsonl'

@@ -68,6 +68,28 @@ python tools/corpus_ptpt/historias_ptpt.py amostrar \
 
 Abrir o CSV e verificar **as 50 histórias**: pronome, sintaxe, vocabulário, enredo e naturalidade PT-PT. Os filtros são heurísticos e não dispensam esta revisão. Não aprovar automaticamente a coluna `aprovada`. Se as saídas forem fracas, não escalar; melhorar modelo/prompt **numa execução nova**.
 
+### Recuperação de lotes com prefixo de ID errado
+
+Nos primeiros 105 lotes, 19 foram rejeitados porque o Codex por vezes manteve
+os **24 caracteres hexadecimais do hash**, mas trocou o prefixo
+`tinystories:` por `historinhas:` ou vice-versa. A validação foi corrigida
+para aceitar **apenas** esta troca comprovada quando o hash é único e coincide
+com a origem; devolve o ID verdadeiro da fila. Não associa respostas por
+posição nem aceita hashes alterados. Os lotes válidos e o prompt v1 continuam
+intactos, sem reprocessamento nem alteração da configuração.
+
+Para recuperar as respostas já guardadas nos eventos, **sem novas chamadas**:
+
+```bash
+git pull --ff-only
+python tools/corpus_ptpt/codex_adapt_stories.py gerar \\
+  --limit 1050 --batch-size 10 --workers 8 \\
+  --reasoning low --recover-events
+```
+
+Antes de usar `--retry-errors`, verificar quantos lotes foram efetivamente
+recuperados e inspecionar as causas dos que restarem.
+
 ## 4. Continuar para todas as histórias, sem gastar chamadas nos cinco lotes iniciais
 
 Depois de validar o piloto:

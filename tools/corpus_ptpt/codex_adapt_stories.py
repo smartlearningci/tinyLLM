@@ -16,6 +16,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import gzip
 import hashlib
 import json
+import re
 import math
 import os
 from pathlib import Path
@@ -219,24 +220,52 @@ def prompt(batch):
 
 
 def validate_response(data, batch):
+    """Aceita só IDs exatos ou troca comprovada do prefixo da fonte.
+
+    O Codex pode conservar os 24 caracteres do hash e trocar
+    'tinystories:' por 'historinhas:' (ou vice-versa). O hash identifica
+    o original. Nunca alinhar automaticamente apenas por posição.
+    """
     if not isinstance(data, dict) or set(data) != {'responses'}:
         raise ValueError('JSON de resposta precisa de uma unica chave responses.')
     items = data['responses']
     if not isinstance(items, list) or len(items) != len(batch):
         raise ValueError('Quantidade de historias convertidas nao coincide com o lote.')
     expected = {x['id'] for x in batch}
+    hashes = {}
+    for row in batch:
+        original_id = row['id']
+        source, sep, suffix = original_id.partition(':')
+        if (sep and source in ('tinystories', 'historinhas')
+                and re.fullmatch(r'[0-9a-f]{24}', suffix)
+                and isinstance(row.get('sha_original'), str)
+                and row['sha_original'].startswith(suffix)):
+            if suffix in hashes:
+                hashes[suffix] = None  # Colisão: nunca recuperar hash ambíguo.
+            else:
+                hashes[suffix] = original_id
     received = set()
     out = {}
     for item in items:
         if not isinstance(item, dict) or set(item) != {'id', 'text_ptpt'}:
             raise ValueError('Cada resposta exige so id e text_ptpt.')
         rid, txt = item['id'], item['text_ptpt']
-        if not isinstance(rid, str) or rid not in expected or rid in received:
+        if not isinstance(rid, str):
+            raise ValueError('ID incorreto ou repetido na resposta.')
+        canonical_id = rid
+        if canonical_id not in expected:
+            source, sep, suffix = rid.partition(':')
+            if not (sep and source in ('tinystories', 'historinhas')
+                    and re.fullmatch(r'[0-9a-f]{24}', suffix)
+                    and hashes.get(suffix)):
+                raise ValueError('ID incorreto ou repetido na resposta.')
+            canonical_id = hashes[suffix]
+        if canonical_id in received:
             raise ValueError('ID incorreto ou repetido na resposta.')
         if not isinstance(txt, str) or not txt.strip():
             raise ValueError('Historia convertida vazia.')
-        received.add(rid)
-        out[rid] = txt.strip()
+        received.add(canonical_id)
+        out[canonical_id] = txt.strip()
     if received != expected:
         raise ValueError('Faltam historias do lote.')
     return out
